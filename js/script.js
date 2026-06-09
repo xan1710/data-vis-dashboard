@@ -299,6 +299,15 @@ function drawPyramidChart(containerId, fState) {
 
     svg.selectAll(".lbl").data(data).enter().append("text")
         .attr("x", width/2).attr("y", d => y(d.group) + y.bandwidth()/2 + 4).attr("text-anchor", "middle").style("fill", "var(--text-dark)").style("font-size", "11px").style("font-weight", "bold").text(d => d.group);
+
+    // ── legend: colour key ─────────────────
+    const legend = svg.append("g").attr("transform", `translate(${width - margin.right - 100}, ${margin.top - 30})`);
+    
+    legend.append("rect").attr("x", 0).attr("y", 0).attr("width", 10).attr("height", 10).attr("fill", "var(--accent-red)").attr("rx", 2);
+    legend.append("text").attr("x", 15).attr("y", 9).style("fill", "var(--text-muted)").style("font-size", "11px").text("First Nations");
+    
+    legend.append("rect").attr("x", 0).attr("y", 15).attr("width", 10).attr("height", 10).attr("fill", "var(--accent-orange)").attr("rx", 2);
+    legend.append("text").attr("x", 15).attr("y", 24).style("fill", "var(--text-muted)").style("font-size", "11px").text("Non-Indigenous");
 }
 
 // 3. Archimedean Spiral Heatmap
@@ -357,6 +366,21 @@ function drawSpiralChart(containerId, fState) {
         g.append("text").attr("x", 5).attr("y", -(baseR + (i * rThick) + 12))
             .attr("text-anchor", "start").style("fill", "var(--text-muted)").style("font-size", "11px").text(v);
     });
+
+    // ── legend: colour scale for cases ─────────────────
+    const defs = svg.append("defs");
+    const gradient = defs.append("linearGradient").attr("id", "spiral-gradient").attr("x1", "0%").attr("y1", "0%").attr("x2", "100%").attr("y2", "0%");
+    gradient.append("stop").attr("offset", "0%").attr("stop-color", "#0f172a");
+    gradient.append("stop").attr("offset", "100%").attr("stop-color", "#ef4444");
+
+    const legendG = g.append("g").attr("transform", `translate(-100, ${baseR + (vehicles.length * rThick) + 40})`);
+    
+    legendG.append("text").attr("x", 100).attr("y", 0).attr("text-anchor", "middle").style("fill", "var(--text-muted)").style("font-size", "11px").style("font-weight", "bold").text("Hospitalisation Intensity");
+    
+    legendG.append("rect").attr("x", 0).attr("y", 8).attr("width", 200).attr("height", 10).style("fill", "url(#spiral-gradient)");
+    
+    legendG.append("text").attr("x", 0).attr("y", 30).attr("text-anchor", "middle").style("fill", "var(--text-muted)").style("font-size", "10px").text("Low");
+    legendG.append("text").attr("x", 200).attr("y", 30).attr("text-anchor", "middle").style("fill", "var(--text-muted)").style("font-size", "10px").text("High");
 }
 
 // 4. Sankey: Region → Vehicle → Severity
