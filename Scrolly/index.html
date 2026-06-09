@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Road Safety Divide: Analytical Command Hub</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="styles/styles.css">
+</head>
+<body>
+
+    <section class="hero-narrative-section">
+        <div class="narrative-container">
+            <span class="tag">01 // Empirical Investigation</span>
+            <h1>Are Our Roads Safer for Everyone or Just Some?</h1>
+            <p class="lead-text">An interactive evaluation of core transport injury registries, seasonal accident cycles, and regional health resource inequality across Australia.</p>
+        </div>
+    </section>
+
+    <div class="scrolly-container">
+        <div class="scroll-text">
+            <div class="step active" data-step="0">
+                <div class="step-card">
+                    <span class="tag">01 // Injury Index over Time</span>
+                    <h2>Traffic Injury Trends over Time: First Nations vs Baseline</h2>
+                    <p>Indexing longitudinal trends from 2011 to 2021 exposes a critical equity divergence. While the broader national baseline tracks a stable trajectory, First Nations transport injuries have spiked, revealing a systemic policy failure.</p>
+                </div>
+            </div>
+            <div class="step" data-step="1">
+                <div class="step-card">
+                    <span class="tag">02 // Age Profiles</span>
+                    <h2>Traffic Hospitalisations by Age Group</h2>
+                    <p>Disaggregating transport trauma exposes an asymmetrical public health burden. The First Nations profile exhibits an alarming concentration centered squarely within the 17–25 youth cohort.</p>
+                </div>
+            </div>
+            <div class="step" data-step="2">
+                <div class="step-card">
+                    <span class="tag">03 // Vehicle Breakdown</span>
+                    <h2>Hospitalisations by Vehicle Type and Month</h2>
+                    <p>Evaluating hospitalisations through an Archimedean spiral heatmap exposes hidden seasonal loops across the year. We can isolate holiday surges and specific vehicle risk density.</p>
+                </div>
+            </div>
+            <div class="step" data-step="3">
+                <div class="step-card">
+                    <span class="tag">04 // Trauma Flow</span>
+                    <h2>Systemic Trauma Flow: Region → Vehicle → Severity</h2>
+                    <p>An alluvial Sankey traces every hospitalisation from where it happened, through which vehicle type was involved, to how severe the resulting stay was. Remote pedestrian injuries concentrate disproportionately in the severe tier — a signature of delayed emergency response.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="scroll-chart-view">
+            <div class="dashboard-panel">
+                <div class="canvas-mount" id="chart-canvas"></div>
+            </div>
+        </div>
+    </div>
+
+    <section class="bottom-dashboard-section">
+
+        <div class="dashboard-body">
+
+            <!-- LEFT: Sticky filter sidebar -->
+            <aside class="filter-sidebar">
+                <div class="sidebar-header">
+                    <span class="tag">Filters</span>
+                    <h3>Control Panel</h3>
+                </div>
+
+                <div class="ctrl-unit">
+                    <label for="global-gender">Gender</label>
+                    <select id="global-gender">
+                        <option value="All">All Genders</option>
+                        <option value="Male">Males Only</option>
+                        <option value="Female">Females Only</option>
+                    </select>
+                </div>
+                <div class="ctrl-unit">
+                    <label for="global-year">Year</label>
+                    <select id="global-year">
+                        <option value="All">All Years</option>
+                        <option value="2021">2021</option>
+                        <option value="2018">2018</option>
+                        <option value="2015">2015</option>
+                        <option value="2011">2011</option>
+                    </select>
+                </div>
+                <div class="ctrl-unit">
+                    <label for="global-region">Region</label>
+                    <select id="global-region">
+                        <option value="All">All Regions</option>
+                        <option value="Major Cities">Major Cities</option>
+                        <option value="Regional">Regional</option>
+                        <option value="Remote">Remote</option>
+                    </select>
+                </div>
+                <div class="ctrl-unit">
+                    <label for="global-age">Age Group</label>
+                    <select id="global-age">
+                        <option value="All">All Ages</option>
+                        <option value="0-16">0 to 16 Years</option>
+                        <option value="17-25">17 to 25 Years</option>
+                        <option value="26-64">26 to 64 Years</option>
+                        <option value="65+">65+ Years</option>
+                    </select>
+                </div>
+                <div class="ctrl-unit">
+                    <label for="global-roaduser">Road User</label>
+                    <select id="global-roaduser">
+                        <option value="All">All Vehicles</option>
+                        <option value="Car">Car/Van</option>
+                        <option value="Motorcycle">Motorcycle</option>
+                        <option value="Pedestrian">Pedestrian</option>
+                        <option value="Bicycle">Bicycle</option>
+                        <option value="Truck">Heavy Vehicle/Bus</option>
+                    </select>
+                </div>
+
+                <div class="sidebar-divider"></div>
+
+                <button class="export-btn" id="export-csv-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export Filtered CSV
+                </button>
+                <p class="export-hint">Downloads the currently filtered hospitalisation rows.</p>
+            </aside>
+
+            <!-- RIGHT: Main dashboard content -->
+            <div class="dashboard-main">
+                <div class="dashboard-editorial-header">
+                    <h2>Interactive Data Exploration Dashboard</h2>
+                    <p>Cross-examine database rows across multiple visual models simultaneously using unified global parameters.</p>
+                </div>
+
+                <div class="kpi-summary-strip">
+                    <div class="kpi-card text-blue">
+                        <div class="kpi-value" id="kpi-total-cases">0</div>
+                        <div class="kpi-label">Total Selected Hospitalisations</div>
+                    </div>
+                    <div class="kpi-card text-red">
+                        <div class="kpi-value" id="kpi-fn-cases">0</div>
+                        <div class="kpi-label">First Nations Cohort Volume</div>
+                    </div>
+                    <div class="kpi-card text-orange">
+                        <div class="kpi-value" id="kpi-severity-index">0.0 Days</div>
+                        <div class="kpi-label">Mean Hospital Stay (Trauma Intensity)</div>
+                    </div>
+                </div>
+
+                <!-- 1×2×1 grid: line full-width, then 2-col middle, bar full-width -->
+                <div class="analytics-dashboard-grid">
+
+                    <div class="dash-card span-full">
+                        <div class="panel-header">
+                            <h3>01 // Indexed Growth Trajectory (2011 = 100%)</h3>
+                            <div class="panel-sub">Percentage growth: First Nations vs Non-Indigenous vs National</div>
+                        </div>
+                        <div class="dash-card-canvas" id="dash-canvas-line"></div>
+                    </div>
+
+                    <div class="dash-card">
+                        <div class="panel-header">
+                            <h3>02 // Hospitalisations by Age Group</h3>
+                            <div class="panel-sub">First Nations (Red) vs Non-Indigenous (Orange)</div>
+                        </div>
+                        <div class="dash-card-canvas" id="dash-canvas-pyramid"></div>
+                    </div>
+
+                    <div class="dash-card">
+                        <div class="panel-header">
+                            <h3>03 // Monthly Hospitalisations by Vehicle Type</h3>
+                            <div class="panel-sub">Archimedean spiral heatmap tracking seasonal spikes</div>
+                        </div>
+                        <div class="dash-card-canvas" id="dash-canvas-spiral"></div>
+                    </div>
+
+                    <div class="dash-card span-full">
+                        <div class="panel-header">
+                            <h3>04 // Systemic Trauma Flow</h3>
+                            <div class="panel-sub">Alluvial Sankey — Region → Vehicle Type → Severity of Stay. Hover any band or node for detail.</div>
+                        </div>
+                        <div class="dash-card-canvas" id="dash-canvas-bar"></div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <footer>
+        <p>Strategic Road Safety Campaign Dashboard Console • Built in D3.js v7</p>
+    </footer>
+
+    <script src="js/script.js"></script>
+    <link rel="stylesheet" href="styles/styles.css">
+    <script src="js/script.js"></script>
+</body>
+</html>

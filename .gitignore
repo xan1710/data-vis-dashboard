@@ -1,0 +1,5 @@
+# Ignore hidden KNIME workspace engine settings
+**/.metadata/
+**/runtime/
+.knimeWorkspace/
+*.log
