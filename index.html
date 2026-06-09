@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,13 +8,14 @@
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <link rel="stylesheet" href="styles/styles.css">
 </head>
+
 <body>
 
     <section class="hero-narrative-section">
         <div class="narrative-container">
-            <span class="tag">01 // Empirical Investigation</span>
             <h1>Are Our Roads Safer for Everyone or Just Some?</h1>
-            <p class="lead-text">An interactive evaluation of core transport injury registries, seasonal accident cycles, and regional health resource inequality across Australia.</p>
+            <p class="lead-text">An interactive evaluation of core transport injury registries, seasonal accident
+                cycles, and regional health resource inequality across Australia.</p>
         </div>
     </section>
 
@@ -23,28 +25,34 @@
                 <div class="step-card">
                     <span class="tag">01 // Injury Index over Time</span>
                     <h2>Traffic Injury Trends over Time: First Nations vs Baseline</h2>
-                    <p>Indexing longitudinal trends from 2011 to 2021 exposes a critical equity divergence. While the broader national baseline tracks a stable trajectory, First Nations transport injuries have spiked, revealing a systemic policy failure.</p>
+                    <p>Indexing longitudinal trends from 2011 to 2021 exposes a critical equity divergence. While the
+                        broader national baseline tracks a stable trajectory, First Nations transport injuries have
+                        spiked, revealing a systemic policy failure.</p>
                 </div>
             </div>
             <div class="step" data-step="1">
                 <div class="step-card">
                     <span class="tag">02 // Age Profiles</span>
                     <h2>Traffic Hospitalisations by Age Group</h2>
-                    <p>Disaggregating transport trauma exposes an asymmetrical public health burden. The First Nations profile exhibits an alarming concentration centered squarely within the 17–25 youth cohort.</p>
+                    <p>Disaggregating transport trauma exposes an asymmetrical public health burden. The First Nations
+                        profile exhibits an alarming concentration centered squarely within the 17–25 youth cohort.</p>
                 </div>
             </div>
             <div class="step" data-step="2">
                 <div class="step-card">
                     <span class="tag">03 // Vehicle Breakdown</span>
                     <h2>Hospitalisations by Vehicle Type and Month</h2>
-                    <p>Evaluating hospitalisations through an Archimedean spiral heatmap exposes hidden seasonal loops across the year. We can isolate holiday surges and specific vehicle risk density.</p>
+                    <p>Evaluating hospitalisations through an Archimedean spiral heatmap exposes hidden seasonal loops
+                        across the year. We can isolate holiday surges and specific vehicle risk density.</p>
                 </div>
             </div>
             <div class="step" data-step="3">
                 <div class="step-card">
                     <span class="tag">04 // Trauma Flow</span>
                     <h2>Systemic Trauma Flow: Region → Vehicle → Severity</h2>
-                    <p>An alluvial Sankey traces every hospitalisation from where it happened, through which vehicle type was involved, to how severe the resulting stay was. Remote pedestrian injuries concentrate disproportionately in the severe tier — a signature of delayed emergency response.</p>
+                    <p>An alluvial Sankey traces every hospitalisation from where it happened, through which vehicle
+                        type was involved, to how severe the resulting stay was. Remote pedestrian injuries concentrate
+                        disproportionately in the severe tier — a signature of delayed emergency response.</p>
                 </div>
             </div>
         </div>
@@ -119,7 +127,12 @@
                 <div class="sidebar-divider"></div>
 
                 <button class="export-btn" id="export-csv-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
                     Export Filtered CSV
                 </button>
                 <p class="export-hint">Downloads the currently filtered hospitalisation rows.</p>
@@ -129,7 +142,8 @@
             <div class="dashboard-main">
                 <div class="dashboard-editorial-header">
                     <h2>Interactive Data Exploration Dashboard</h2>
-                    <p>Cross-examine database rows across multiple visual models simultaneously using unified global parameters.</p>
+                    <p>Cross-examine database rows across multiple visual models simultaneously using unified global
+                        parameters.</p>
                 </div>
 
                 <div class="kpi-summary-strip">
@@ -177,7 +191,8 @@
                     <div class="dash-card span-full">
                         <div class="panel-header">
                             <h3>04 // Systemic Trauma Flow</h3>
-                            <div class="panel-sub">Alluvial Sankey — Region → Vehicle Type → Severity of Stay. Hover any band or node for detail.</div>
+                            <div class="panel-sub">Alluvial Sankey — Region → Vehicle Type → Severity of Stay. Hover any
+                                band or node for detail.</div>
                         </div>
                         <div class="dash-card-canvas" id="dash-canvas-bar"></div>
                     </div>
@@ -196,4 +211,5 @@
     <link rel="stylesheet" href="styles/styles.css">
     <script src="js/script.js"></script>
 </body>
+
 </html>
