@@ -4,12 +4,56 @@ const height = 400;
 const margin = { top: 40, right: 120, bottom: 50, left: 60 };
 
 // Shared HTML Tooltip
-const tooltip = d3.select("body").append("div").attr("class", "chart-tooltip");
+const tooltip = d3.select("body").append("div")
+    .attr("class", "chart-tooltip")
+    .attr("id", "chart-tooltip")
+    .attr("role", "tooltip")
+    .attr("aria-hidden", "true");
+
+const TOOLTIP_ID = "chart-tooltip";
+
+function showTooltip(html, x, y, el) {
+    tooltip.attr("aria-hidden", "false").style("opacity", 1).html(html)
+        .style("left", x + "px").style("top", y + "px");
+    if (el) el.setAttribute("aria-describedby", TOOLTIP_ID);
+}
+
+function hideTooltip(el) {
+    tooltip.attr("aria-hidden", "true").style("opacity", 0);
+    if (el) el.removeAttribute("aria-describedby");
+}
+
+function showChartTip(el, html, e) {
+    if (e.type === "focus") {
+        const r = el.getBoundingClientRect();
+        showTooltip(html, r.left + window.scrollX + r.width / 2, r.top + window.scrollY - 15, el);
+    } else {
+        showTooltip(html, e.pageX + 15, e.pageY - 15);
+    }
+}
+
+function announceDashboardStatus(tCases, fnCases, mStay) {
+    const el = document.getElementById("dashboard-status");
+    if (!el) return;
+    el.textContent = `${tCases.toLocaleString()} hospitalisations shown. First Nations: ${fnCases.toLocaleString()}. Mean stay: ${mStay.toFixed(1)} days.`;
+}
+
+function showAppMessage(text, type) {
+    const el = document.getElementById("app-message");
+    if (!el) return;
+    el.textContent = text;
+    el.className = "app-message app-message--" + (type || "error");
+    el.hidden = false;
+}
+
+function hideAppMessage() {
+    const el = document.getElementById("app-message");
+    if (el) el.hidden = true;
+}
 
 // --- DATA STATE & FILTERS ---
 let rawFN = [];
 let rawHosp = [];
-let currentScene = 0;
 
 let dashFilters = {
     gender: "All",
@@ -18,6 +62,13 @@ let dashFilters = {
     age: "All",
     roadUser: "All"  // FIX #3: camelCase matches fState.roadUser used in filterHospData
 };
+
+let activeScrollyStep = 0;
+let scrollyNavigating = false;
+
+d3.selectAll(".canvas-mount, .dash-card-canvas").each(function () {
+    d3.select(this).append("div").attr("class", "chart-loading").attr("role", "status").text("Loading hospitalisation data…");
+});
 
 // --- DATA LOADING ---
 Promise.all([
@@ -48,10 +99,16 @@ Promise.all([
         days: cleanNum(d["Bed days"])
     }));
 
-    // Initialize UI
-    updateScrolly(0);
+    hideAppMessage();
+    d3.selectAll(".chart-loading").remove();
+    initScrolly();
+    syncScrollyStep(0, false);
     renderDashboard();
-}).catch(err => console.error("Error loading data:", err));
+}).catch(err => {
+    console.error("Error loading data:", err);
+    d3.selectAll(".chart-loading").remove();
+    showAppMessage("Unable to load hospitalisation data. Please refresh the page or try again later.", "error");
+});
 
 
 // --- HELPER MAPPINGS ---
@@ -118,13 +175,15 @@ function renderDashboard() {
     drawPyramidChart("dash-canvas-pyramid", dashFilters);
     drawSpiralChart("dash-canvas-spiral", dashFilters);
     drawSankeyChart("dash-canvas-bar", dashFilters);
+
+    announceDashboardStatus(tCases, fnCases, mStay);
 }
 
-// FIX #3: Correct the camelCase mismatch for roaduser -> roadUser
 d3.selectAll(".filter-sidebar select").on("change", function () {
     let id = d3.select(this).attr("id").replace("global-", "");
-    if (id === "roaduser") id = "roadUser";  // normalise to camelCase key
+    if (id === "roaduser") id = "roadUser";
     dashFilters[id] = this.value;
+    hideAppMessage();
     renderDashboard();
 });
 
@@ -133,9 +192,11 @@ document.getElementById("export-csv-btn").addEventListener("click", () => {
     const subset = filterHospData(dashFilters);
 
     if (subset.length === 0) {
-        alert("No data matches the current filters — nothing to export.");
+        showAppMessage("No data matches the current filters — nothing to export.", "error");
         return;
     }
+
+    hideAppMessage();
 
     // Build CSV header + rows
     const headers = ["Year", "Month", "Region", "Sex", "Age Group", "Road User", "Hospitalisations", "Bed Days"];
@@ -170,6 +231,7 @@ document.getElementById("export-csv-btn").addEventListener("click", () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    showAppMessage(`Exported ${subset.length.toLocaleString()} rows to ${filename}.`, "success");
 });
 
 // --- RESET FILTERS ---
@@ -188,6 +250,7 @@ document.getElementById("reset-filters-btn").addEventListener("click", () => {
     d3.select("#global-age").property("value", "All");
     d3.select("#global-roaduser").property("value", "All");
 
+    hideAppMessage();
     renderDashboard();
 });
 
@@ -197,6 +260,7 @@ document.getElementById("reset-filters-btn").addEventListener("click", () => {
 function drawLineChart(containerId, fState) {
     const parent = d3.select("#" + containerId).html("");
     const svg = parent.append("svg").attr("viewBox", `0 0 ${width} ${height}`);
+    svg.append("title").text("Indexed growth trajectory: First Nations, Non-Indigenous, and National transport injuries over time");
 
     // FIX #1: "All ages" row doesn't exist in the data — sum all individual age groups per year.
     // When a specific age filter is active, restrict to those matching age groups.
@@ -239,50 +303,57 @@ function drawLineChart(containerId, fState) {
     svg.append("g").attr("transform", `translate(0, ${height - margin.bottom})`).attr("class", "axis").call(d3.axisBottom(x));
     svg.append("g").attr("transform", `translate(${margin.left},0)`).attr("class", "axis").call(d3.axisLeft(y).ticks(6).tickFormat(d => d + "%"));
     svg.append("g").attr("class", "grid").attr("transform", `translate(${margin.left}, 0)`).call(d3.axisLeft(y).ticks(6).tickSize(-width + margin.left + margin.right).tickFormat(""));
+    svg.selectAll(".axis, .grid").attr("aria-hidden", "true");
 
     const lNat = d3.line().x(d => x(d.year)).y(d => y(d.natIdx)).curve(d3.curveMonotoneX);
     const lNon = d3.line().x(d => x(d.year)).y(d => y(d.nonIdx)).curve(d3.curveMonotoneX);
     const lFn = d3.line().x(d => x(d.year)).y(d => y(d.fnIdx)).curve(d3.curveMonotoneX);
 
-    svg.append("path").datum(data).attr("fill", "none").attr("stroke", "var(--accent-blue)").attr("stroke-dasharray", "4,4").attr("stroke-width", 2).attr("d", lNat);
-    svg.append("path").datum(data).attr("fill", "none").attr("stroke", "var(--accent-orange)").attr("stroke-dasharray", "4,4").attr("stroke-width", 2).attr("d", lNon);
-    svg.append("path").datum(data).attr("fill", "none").attr("stroke", "var(--accent-red)").attr("stroke-width", 3).attr("d", lFn);
+    svg.append("path").datum(data).attr("fill", "none").attr("stroke", "var(--accent-blue)").attr("stroke-dasharray", "4,4").attr("stroke-width", 2).attr("d", lNat).attr("aria-hidden", "true");
+    svg.append("path").datum(data).attr("fill", "none").attr("stroke", "var(--accent-orange)").attr("stroke-dasharray", "4,4").attr("stroke-width", 2).attr("d", lNon).attr("aria-hidden", "true");
+    svg.append("path").datum(data).attr("fill", "none").attr("stroke", "var(--accent-red)").attr("stroke-width", 3).attr("d", lFn).attr("aria-hidden", "true");
 
-    svg.append("text").attr("x", width - margin.right + 10).attr("y", y(data[10].fnIdx)).style("fill", "var(--accent-red)").style("font-size", "11px").style("font-weight", "bold").text("First Nations");
-    svg.append("text").attr("x", width - margin.right + 10).attr("y", y(data[10].nonIdx)).style("fill", "var(--accent-orange)").style("font-size", "11px").style("font-weight", "bold").text("Non-Indigenous");
-    svg.append("text").attr("x", width - margin.right + 10).attr("y", y(data[10].natIdx) + 15).style("fill", "var(--accent-blue)").style("font-size", "11px").style("font-weight", "bold").text("National");
+    svg.append("text").attr("x", width - margin.right + 10).attr("y", y(data[10].fnIdx)).style("fill", "var(--accent-red)").attr("class", "chart-label").style("font-weight", "bold").text("First Nations").attr("aria-hidden", "true");
+    svg.append("text").attr("x", width - margin.right + 10).attr("y", y(data[10].nonIdx)).style("fill", "var(--accent-orange)").attr("class", "chart-label").style("font-weight", "bold").text("Non-Indigenous").attr("aria-hidden", "true");
+    svg.append("text").attr("x", width - margin.right + 10).attr("y", y(data[10].natIdx) + 15).style("fill", "var(--accent-blue)").attr("class", "chart-label").style("font-weight", "bold").text("National").attr("aria-hidden", "true");
 
-    // Universal Hover Zones
+    function lineTip(d) {
+        return `<div class="tooltip-title">Year ${d.year} Growth</div>
+            <span style="color:var(--accent-red)">First Nations: <b>${d.fnIdx.toFixed(1)}%</b> (${d.fnRaw.toLocaleString()} cases)</span><br>
+            <span style="color:var(--accent-orange)">Non-Indigenous: <b>${d.nonIdx.toFixed(1)}%</b> (${d.nonRaw.toLocaleString()} cases)</span><br>
+            <span style="color:var(--accent-blue)">National Total: <b>${d.natIdx.toFixed(1)}%</b> (${d.natRaw.toLocaleString()} cases)</span>`;
+    }
+
     const step = x.step();
     svg.selectAll(".hover-zone").data(data).enter().append("rect").attr("class", "hover-zone")
         .attr("x", d => x(d.year) - step / 2).attr("y", margin.top).attr("width", step).attr("height", height - margin.top - margin.bottom).attr("fill", "transparent")
         .style("cursor", "crosshair")
         .attr("tabindex", "0")
+        .attr("role", "button")
+        .attr("aria-label", d =>
+            `${d.year}: First Nations ${d.fnIdx.toFixed(1)}% (${d.fnRaw.toLocaleString()} cases), ` +
+            `Non-Indigenous ${d.nonIdx.toFixed(1)}% (${d.nonRaw.toLocaleString()} cases), ` +
+            `National ${d.natIdx.toFixed(1)}% (${d.natRaw.toLocaleString()} cases)`)
         .on("mouseover focus", function (e, d) {
-            svg.append("line").attr("class", "hover-line").attr("x1", x(d.year)).attr("x2", x(d.year)).attr("y1", margin.top).attr("y2", height - margin.bottom).attr("stroke", "#94a3b8").attr("stroke-dasharray", "3,3");
-            svg.append("circle").attr("class", "hover-dot").attr("cx", x(d.year)).attr("cy", y(d.fnIdx)).attr("r", 6).attr("fill", "var(--accent-red)").attr("stroke", "#fff").attr("stroke-width", 2);
-            svg.append("circle").attr("class", "hover-dot").attr("cx", x(d.year)).attr("cy", y(d.nonIdx)).attr("r", 6).attr("fill", "var(--accent-orange)").attr("stroke", "#fff").attr("stroke-width", 2);
-            svg.append("circle").attr("class", "hover-dot").attr("cx", x(d.year)).attr("cy", y(d.natIdx)).attr("r", 6).attr("fill", "var(--accent-blue)").attr("stroke", "#fff").attr("stroke-width", 2);
+            svg.append("line").attr("class", "hover-line").attr("aria-hidden", "true").attr("x1", x(d.year)).attr("x2", x(d.year)).attr("y1", margin.top).attr("y2", height - margin.bottom).attr("stroke", "#94a3b8").attr("stroke-dasharray", "3,3");
+            svg.append("circle").attr("class", "hover-dot").attr("aria-hidden", "true").attr("cx", x(d.year)).attr("cy", y(d.fnIdx)).attr("r", 6).attr("fill", "var(--accent-red)").attr("stroke", "#fff").attr("stroke-width", 2);
+            svg.append("circle").attr("class", "hover-dot").attr("aria-hidden", "true").attr("cx", x(d.year)).attr("cy", y(d.nonIdx)).attr("r", 6).attr("fill", "var(--accent-orange)").attr("stroke", "#fff").attr("stroke-width", 2);
+            svg.append("circle").attr("class", "hover-dot").attr("aria-hidden", "true").attr("cx", x(d.year)).attr("cy", y(d.natIdx)).attr("r", 6).attr("fill", "var(--accent-blue)").attr("stroke", "#fff").attr("stroke-width", 2);
 
-            tooltip.style("opacity", 1).html(`
-                <div class="tooltip-title">Year ${d.year} Growth</div>
-                <span style="color:var(--accent-red)">First Nations: <b>${d.fnIdx.toFixed(1)}%</b> (${d.fnRaw.toLocaleString()} cases)</span><br>
-                <span style="color:var(--accent-orange)">Non-Indigenous: <b>${d.nonIdx.toFixed(1)}%</b> (${d.nonRaw.toLocaleString()} cases)</span><br>
-                <span style="color:var(--accent-blue)">National Total: <b>${d.natIdx.toFixed(1)}%</b> (${d.natRaw.toLocaleString()} cases)</span>
-            `);
-            if (e.type === "focus") {
-                const rect = this.getBoundingClientRect();
-                tooltip.style("left", (rect.left + window.scrollX + rect.width / 2) + "px").style("top", (rect.top + window.scrollY + 20) + "px");
-            }
+            showChartTip(this, lineTip(d), e);
         })
-        .on("mousemove", e => tooltip.style("left", (e.pageX + 15) + "px").style("top", (e.pageY - 15) + "px"))
-        .on("mouseout blur", function () { svg.selectAll(".hover-line, .hover-dot").remove(); tooltip.style("opacity", 0); });
+        .on("mousemove", (e, d) => showTooltip(lineTip(d), e.pageX + 15, e.pageY - 15))
+        .on("mouseout blur", function () {
+            svg.selectAll(".hover-line, .hover-dot").remove();
+            hideTooltip(this);
+        });
 }
 
 // 2. Population Pyramid Chart (Independent Scales)
 function drawPyramidChart(containerId, fState) {
     const parent = d3.select("#" + containerId).html("");
     const svg = parent.append("svg").attr("viewBox", `0 0 ${width} ${height}`);
+    svg.append("title").text("Population pyramid: hospitalisations by age group, First Nations versus Non-Indigenous");
 
     const cohorts = ["0-7", "8-16", "17-25", "26-39", "40-64", "65+"];
     let subset = rawFN.filter(d => d.catType === "Age group");
@@ -308,51 +379,56 @@ function drawPyramidChart(containerId, fState) {
 
     svg.append("g").attr("transform", `translate(0,${height - margin.bottom})`).attr("class", "axis").call(d3.axisBottom(xL).ticks(4).tickFormat(d3.format("~s")));
     svg.append("g").attr("transform", `translate(0,${height - margin.bottom})`).attr("class", "axis").call(d3.axisBottom(xR).ticks(4).tickFormat(d3.format("~s")));
+    svg.selectAll(".axis, .grid").attr("aria-hidden", "true");
 
-    svg.selectAll(".lBar").data(data).enter().append("rect").attr("class", "dash-bar")
-        .attr("x", d => xL(d.fn)).attr("y", d => y(d.group)).attr("width", d => (width / 2 - 35) - xL(d.fn)).attr("height", y.bandwidth()).attr("fill", "var(--accent-red)")
-        .attr("tabindex", "0")
-        .on("mouseover focus", function (e, d) {
-            tooltip.style("opacity", 1).html(`<div class="tooltip-title">First Nations (Age ${d.group})</div>Total: <b>${d.fn.toLocaleString()}</b> cases`);
-            if (e.type === "focus") {
-                const rect = this.getBoundingClientRect();
-                tooltip.style("left", (rect.left + window.scrollX + rect.width / 2) + "px").style("top", (rect.top + window.scrollY - 15) + "px");
-            }
-        })
-        .on("mousemove", e => tooltip.style("left", (e.pageX + 15) + "px").style("top", (e.pageY - 15) + "px"))
-        .on("mouseout blur", () => tooltip.style("opacity", 0));
+    const fnPatternId = "pattern-fn-" + containerId;
+    const patternDefs = svg.append("defs");
+    const fnPattern = patternDefs.append("pattern")
+        .attr("id", fnPatternId).attr("patternUnits", "userSpaceOnUse").attr("width", 6).attr("height", 6);
+    fnPattern.append("rect").attr("width", 6).attr("height", 6).attr("fill", "var(--accent-red)");
+    fnPattern.append("path").attr("d", "M0,6 L6,0").attr("stroke", "#070a12").attr("stroke-width", 1.2);
 
-    svg.selectAll(".rBar").data(data).enter().append("rect").attr("class", "dash-bar")
-        .attr("x", width / 2 + 35).attr("y", d => y(d.group)).attr("width", d => xR(d.non) - (width / 2 + 35)).attr("height", y.bandwidth()).attr("fill", "var(--accent-orange)")
-        .attr("tabindex", "0")
-        .on("mouseover focus", function (e, d) {
-            tooltip.style("opacity", 1).html(`<div class="tooltip-title">Non-Indigenous (Age ${d.group})</div>Total: <b>${d.non.toLocaleString()}</b> cases`);
-            if (e.type === "focus") {
-                const rect = this.getBoundingClientRect();
-                tooltip.style("left", (rect.left + window.scrollX + rect.width / 2) + "px").style("top", (rect.top + window.scrollY - 15) + "px");
-            }
-        })
-        .on("mousemove", e => tooltip.style("left", (e.pageX + 15) + "px").style("top", (e.pageY - 15) + "px"))
-        .on("mouseout blur", () => tooltip.style("opacity", 0));
+    function bindBarEvents(selection, valueKey, titlePrefix) {
+        const tip = d => `<div class="tooltip-title">${titlePrefix} (Age ${d.group})</div>Total: <b>${d[valueKey].toLocaleString()}</b> cases`;
+        selection
+            .attr("tabindex", "0").attr("role", "button")
+            .attr("aria-label", d => `${titlePrefix}, age ${d.group}: ${d[valueKey].toLocaleString()} hospitalisations`)
+            .on("mouseover focus", function (e, d) { showChartTip(this, tip(d), e); })
+            .on("mousemove", (e, d) => showTooltip(tip(d), e.pageX + 15, e.pageY - 15))
+            .on("mouseout blur", function () { hideTooltip(this); });
+    }
+
+    bindBarEvents(
+        svg.selectAll(".lBar").data(data).enter().append("rect").attr("class", "dash-bar")
+            .attr("x", d => xL(d.fn)).attr("y", d => y(d.group)).attr("width", d => (width / 2 - 35) - xL(d.fn)).attr("height", y.bandwidth()).attr("fill", "url(#" + fnPatternId + ")"),
+        "fn", "First Nations"
+    );
+
+    bindBarEvents(
+        svg.selectAll(".rBar").data(data).enter().append("rect").attr("class", "dash-bar")
+            .attr("x", width / 2 + 35).attr("y", d => y(d.group)).attr("width", d => xR(d.non) - (width / 2 + 35)).attr("height", y.bandwidth()).attr("fill", "var(--accent-orange)"),
+        "non", "Non-Indigenous"
+    );
 
     svg.selectAll(".lbl").data(data).enter().append("text")
-        .attr("x", width / 2).attr("y", d => y(d.group) + y.bandwidth() / 2 + 4).attr("text-anchor", "middle").style("fill", "var(--text-dark)").style("font-size", "11px").style("font-weight", "bold").text(d => d.group);
+        .attr("x", width / 2).attr("y", d => y(d.group) + y.bandwidth() / 2 + 4).attr("text-anchor", "middle").style("fill", "var(--text-dark)").attr("class", "chart-label").style("font-weight", "bold").text(d => d.group).attr("aria-hidden", "true");
 
-    // ── legend: colour key ─────────────────
-    const legend = svg.append("g").attr("transform", `translate(${width - margin.right - 100}, ${margin.top - 30})`);
+    const legend = svg.append("g").attr("transform", `translate(${width - margin.right - 100}, ${margin.top - 30})`).attr("aria-hidden", "true");
 
-    legend.append("rect").attr("x", 0).attr("y", 0).attr("width", 10).attr("height", 10).attr("fill", "var(--accent-red)").attr("rx", 2);
-    legend.append("text").attr("x", 15).attr("y", 9).style("fill", "var(--text-muted)").style("font-size", "11px").text("First Nations");
+    legend.append("rect").attr("x", 0).attr("y", 0).attr("width", 10).attr("height", 10).attr("fill", "url(#" + fnPatternId + ")").attr("rx", 2);
+    legend.append("text").attr("x", 15).attr("y", 9).style("fill", "var(--text-muted)").attr("class", "chart-label").text("First Nations (striped)");
 
     legend.append("rect").attr("x", 0).attr("y", 15).attr("width", 10).attr("height", 10).attr("fill", "var(--accent-orange)").attr("rx", 2);
-    legend.append("text").attr("x", 15).attr("y", 24).style("fill", "var(--text-muted)").style("font-size", "11px").text("Non-Indigenous");
+    legend.append("text").attr("x", 15).attr("y", 24).style("fill", "var(--text-muted)").attr("class", "chart-label").text("Non-Indigenous (solid)");
 }
 
 // 3. Archimedean Spiral Heatmap
 function drawSpiralChart(containerId, fState) {
     const parent = d3.select("#" + containerId).html("");
     const svg = parent.append("svg").attr("viewBox", `0 0 600 600`);
+    svg.append("title").text("Spiral heatmap: monthly hospitalisations by vehicle type");
     const g = svg.append("g").attr("transform", `translate(300, 300)`);
+    const gradientId = "spiral-gradient-" + containerId;
 
     const subset = filterHospData(fState);
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -384,46 +460,44 @@ function drawSpiralChart(containerId, fState) {
         .attr("stroke", "var(--panel-bg)").attr("stroke-width", "1.5px")
         .style("cursor", "pointer")
         .attr("tabindex", "0")
+        .attr("role", "button")
+        .attr("aria-label", d => `${d.v}, ${d.m}: ${d.val.toLocaleString()} hospitalisations`)
         .on("mouseover focus", function (e, d) {
             d3.select(this).attr("stroke", "#fff").attr("stroke-width", "2px");
-            tooltip.style("opacity", 1).html(`<div class="tooltip-title">${d.v}</div>Month: ${d.m}<br>Cases: <b>${d.val.toLocaleString()}</b>`);
-            if (e.type === "focus") {
-                const rect = this.getBoundingClientRect();
-                tooltip.style("left", (rect.left + window.scrollX + rect.width / 2) + "px").style("top", (rect.top + window.scrollY - 15) + "px");
-            }
+            const tip = `<div class="tooltip-title">${d.v}</div>Month: ${d.m}<br>Cases: <b>${d.val.toLocaleString()}</b>`;
+            showChartTip(this, tip, e);
         })
-        .on("mousemove", e => tooltip.style("left", (e.pageX + 15) + "px").style("top", (e.pageY - 15) + "px"))
+        .on("mousemove", (e, d) => showTooltip(`<div class="tooltip-title">${d.v}</div>Month: ${d.m}<br>Cases: <b>${d.val.toLocaleString()}</b>`, e.pageX + 15, e.pageY - 15))
         .on("mouseout blur", function () {
             d3.select(this).attr("stroke", "var(--panel-bg)").attr("stroke-width", "1.5px");
-            tooltip.style("opacity", 0);
+            hideTooltip(this);
         });
 
     months.forEach((m, i) => {
         const ang = ((i + 0.5) * 2 * Math.PI) / 12 - Math.PI / 2;
         const radius = baseR + (vehicles.length * rThick) + 20;
         g.append("text").attr("x", radius * Math.cos(ang)).attr("y", radius * Math.sin(ang) + 4)
-            .attr("text-anchor", "middle").style("fill", "var(--text-muted)").style("font-size", "13px").style("font-weight", "bold").text(m.substring(0, 3));
+            .attr("text-anchor", "middle").style("fill", "var(--text-muted)").attr("class", "chart-label").style("font-weight", "bold").text(m.substring(0, 3)).attr("aria-hidden", "true");
     });
 
     vehicles.forEach((v, i) => {
         g.append("text").attr("x", 5).attr("y", -(baseR + (i * rThick) + 12))
-            .attr("text-anchor", "start").style("fill", "var(--text-muted)").style("font-size", "11px").text(v);
+            .attr("text-anchor", "start").style("fill", "var(--text-muted)").attr("class", "chart-label").text(v).attr("aria-hidden", "true");
     });
 
-    // ── legend: colour scale for cases ─────────────────
     const defs = svg.append("defs");
-    const gradient = defs.append("linearGradient").attr("id", "spiral-gradient").attr("x1", "0%").attr("y1", "0%").attr("x2", "100%").attr("y2", "0%");
+    const gradient = defs.append("linearGradient").attr("id", gradientId).attr("x1", "0%").attr("y1", "0%").attr("x2", "100%").attr("y2", "0%");
     gradient.append("stop").attr("offset", "0%").attr("stop-color", "#0f172a");
     gradient.append("stop").attr("offset", "100%").attr("stop-color", "#ef4444");
 
-    const legendG = g.append("g").attr("transform", `translate(-100, ${baseR + (vehicles.length * rThick) + 40})`);
+    const legendG = g.append("g").attr("transform", `translate(-100, ${baseR + (vehicles.length * rThick) + 40})`).attr("aria-hidden", "true");
 
-    legendG.append("text").attr("x", 100).attr("y", 0).attr("text-anchor", "middle").style("fill", "var(--text-muted)").style("font-size", "11px").style("font-weight", "bold").text("Hospitalisation Intensity");
+    legendG.append("text").attr("x", 100).attr("y", 0).attr("text-anchor", "middle").style("fill", "var(--text-muted)").attr("class", "chart-label").style("font-weight", "bold").text("Hospitalisation Intensity");
 
-    legendG.append("rect").attr("x", 0).attr("y", 8).attr("width", 200).attr("height", 10).style("fill", "url(#spiral-gradient)");
+    legendG.append("rect").attr("x", 0).attr("y", 8).attr("width", 200).attr("height", 10).style("fill", "url(#" + gradientId + ")");
 
-    legendG.append("text").attr("x", 0).attr("y", 30).attr("text-anchor", "middle").style("fill", "var(--text-muted)").style("font-size", "10px").text("Low");
-    legendG.append("text").attr("x", 200).attr("y", 30).attr("text-anchor", "middle").style("fill", "var(--text-muted)").style("font-size", "10px").text("High");
+    legendG.append("text").attr("x", 0).attr("y", 30).attr("text-anchor", "middle").style("fill", "var(--text-muted)").attr("class", "chart-label").text("Low");
+    legendG.append("text").attr("x", 200).attr("y", 30).attr("text-anchor", "middle").style("fill", "var(--text-muted)").attr("class", "chart-label").text("High");
 }
 
 // 4. Sankey: Region → Vehicle → Severity
@@ -438,6 +512,7 @@ function drawSankeyChart(containerId, fState) {
     const svg = parent.append("svg")
         .attr("viewBox", `0 0 ${W} ${H}`)
         .style("overflow", "visible");
+    svg.append("title").text("Sankey diagram: trauma flow from region through vehicle type to severity of hospital stay");
 
     // ── build raw links from filtered data ──────────────────────────────────
     const subset = filterHospData(fState);
@@ -502,7 +577,7 @@ function drawSankeyChart(containerId, fState) {
     const totalCases = d3.sum(regions, r => regionTotal[r]);
     if (totalCases === 0) {
         svg.append("text").attr("x", W / 2).attr("y", H / 2)
-            .attr("text-anchor", "middle").style("fill", "var(--text-muted)").style("font-size", "14px")
+            .attr("text-anchor", "middle").attr("class", "chart-label")
             .text("No data for current filter selection.");
         return;
     }
@@ -614,6 +689,11 @@ function drawSankeyChart(containerId, fState) {
             `;
 
             const pct = ((cases / totalCases) * 100).toFixed(1);
+            const tipHtml = `
+                <div class="tooltip-title">${link.source.name} → ${link.target.name}</div>
+                Hospitalisations: <b>${cases.toLocaleString()}</b><br>
+                Share of total: <b>${pct}%</b>
+            `;
             g.append("path")
                 .attr("d", path)
                 .attr("fill", color)
@@ -621,22 +701,16 @@ function drawSankeyChart(containerId, fState) {
                 .attr("class", "sankey-link")
                 .style("cursor", "pointer")
                 .attr("tabindex", "0")
+                .attr("role", "button")
+                .attr("aria-label", `${link.source.name} to ${link.target.name}: ${cases.toLocaleString()} hospitalisations, ${pct}% of total`)
                 .on("mouseover focus", function (e) {
                     d3.select(this).attr("opacity", 0.65);
-                    tooltip.style("opacity", 1).html(`
-                        <div class="tooltip-title">${link.source.name} → ${link.target.name}</div>
-                        Hospitalisations: <b>${cases.toLocaleString()}</b><br>
-                        Share of total: <b>${pct}%</b>
-                    `);
-                    if (e.type === "focus") {
-                        const rect = this.getBoundingClientRect();
-                        tooltip.style("left", (rect.left + window.scrollX + rect.width / 2) + "px").style("top", (rect.top + window.scrollY - 15) + "px");
-                    }
+                    showChartTip(this, tipHtml, e);
                 })
-                .on("mousemove", e => tooltip.style("left", (e.pageX + 15) + "px").style("top", (e.pageY - 15) + "px"))
+                .on("mousemove", e => showTooltip(tipHtml, e.pageX + 15, e.pageY - 15))
                 .on("mouseout blur", function () {
                     d3.select(this).attr("opacity", 0.25);
-                    tooltip.style("opacity", 0);
+                    hideTooltip(this);
                 });
         });
     }
@@ -650,26 +724,28 @@ function drawSankeyChart(containerId, fState) {
             const g = svg.append("g").style("cursor", "pointer");
             const pct = ((node.total / totalCases) * 100).toFixed(1);
 
+            const tipHtml = `
+                <div class="tooltip-title">${node.name}</div>
+                Hospitalisations: <b>${node.total.toLocaleString()}</b><br>
+                Share of total: <b>${pct}%</b>
+            `;
             g.append("rect")
                 .attr("x", node.x).attr("y", node.y)
                 .attr("width", nodeW).attr("height", node.h)
                 .attr("fill", colorMap[node.name] || "#94a3b8")
                 .attr("rx", 3)
                 .attr("tabindex", "0")
+                .attr("role", "button")
+                .attr("aria-label", `${node.name}: ${node.total.toLocaleString()} hospitalisations, ${pct}% of total`)
                 .on("mouseover focus", function (e) {
                     d3.select(this).attr("opacity", 0.8);
-                    tooltip.style("opacity", 1).html(`
-                        <div class="tooltip-title">${node.name}</div>
-                        Hospitalisations: <b>${node.total.toLocaleString()}</b><br>
-                        Share of total: <b>${pct}%</b>
-                    `);
-                    if (e.type === "focus") {
-                        const rect = this.getBoundingClientRect();
-                        tooltip.style("left", (rect.left + window.scrollX + rect.width / 2) + "px").style("top", (rect.top + window.scrollY - 15) + "px");
-                    }
+                    showChartTip(this, tipHtml, e);
                 })
-                .on("mousemove", e => tooltip.style("left", (e.pageX + 15) + "px").style("top", (e.pageY - 15) + "px"))
-                .on("mouseout blur", function () { d3.select(this).attr("opacity", 1); tooltip.style("opacity", 0); });
+                .on("mousemove", e => showTooltip(tipHtml, e.pageX + 15, e.pageY - 15))
+                .on("mouseout blur", function () {
+                    d3.select(this).attr("opacity", 1);
+                    hideTooltip(this);
+                });
 
             const midY = node.y + node.h / 2;
             const textX = labelSide === "left" ? node.x - 8 :
@@ -677,19 +753,17 @@ function drawSankeyChart(containerId, fState) {
             const anchor = labelSide === "left" ? "end" :
                 labelSide === "right" ? "start" : "middle";
 
-            // Name label
             g.append("text")
                 .attr("x", textX).attr("y", midY - 4)
                 .attr("text-anchor", anchor).attr("dominant-baseline", "middle")
-                .style("fill", "var(--text-dark)").style("font-size", "12px").style("font-weight", "700")
-                .text(node.name);
+                .style("fill", "var(--text-dark)").attr("class", "chart-label").style("font-weight", "700")
+                .text(node.name).attr("aria-hidden", "true");
 
-            // Sub-label: count + %
             g.append("text")
                 .attr("x", textX).attr("y", midY + 10)
                 .attr("text-anchor", anchor).attr("dominant-baseline", "middle")
-                .style("fill", "var(--text-muted)").style("font-size", "10px")
-                .text(`${(node.total / 1000).toFixed(1)}k · ${pct}%`);
+                .style("fill", "var(--text-muted)").attr("class", "chart-label")
+                .text(`${(node.total / 1000).toFixed(1)}k · ${pct}%`).attr("aria-hidden", "true");
         });
     }
 
@@ -707,12 +781,11 @@ function drawSankeyChart(containerId, fState) {
         svg.append("text")
             .attr("x", h.x).attr("y", pad.top - 10)
             .attr("text-anchor", "middle")
-            .style("fill", "var(--accent-blue)").style("font-size", "10px")
+            .style("fill", "var(--accent-blue)").attr("class", "chart-label")
             .style("font-weight", "800").style("text-transform", "uppercase").style("letter-spacing", "1.5px")
-            .text(h.label);
+            .text(h.label).attr("aria-hidden", "true");
     });
 
-    // ── legend: colour key for vehicle types (middle column) ─────────────────
     const legendX = colX2 - 4;
     const legendY = H - 8;
     const legendItems = Object.entries(vehicleColor);
@@ -725,31 +798,71 @@ function drawSankeyChart(containerId, fState) {
         svg.append("rect")
             .attr("x", lx).attr("y", legendY - 8)
             .attr("width", 10).attr("height", 10)
-            .attr("fill", color).attr("rx", 2);
+            .attr("fill", color).attr("rx", 2).attr("aria-hidden", "true");
         svg.append("text")
             .attr("x", lx + 14).attr("y", legendY + 1)
-            .style("fill", "var(--text-muted)").style("font-size", "10px")
-            .text(name);
+            .style("fill", "var(--text-muted)").attr("class", "chart-label")
+            .text(name).attr("aria-hidden", "true");
     });
 }
 
-// --- SCROLLYTELLING VIEW LOGIC ---
-function updateScrolly(index) {
-    let scrollyState = { gender: "All", year: "All", region: "All", age: "All", roadUser: "All" };
-    if (index === 0) drawLineChart("chart-canvas", scrollyState);
-    if (index === 1) { scrollyState.year = "2021"; drawPyramidChart("chart-canvas", scrollyState); }
-    if (index === 2) { scrollyState.year = "2021"; drawSpiralChart("chart-canvas", scrollyState); }
-    if (index === 3) drawSankeyChart("chart-canvas", scrollyState);
+// --- SCROLLYTELLING ---
+function updateScrollyChart(index) {
+    const state = { gender: "All", year: "All", region: "All", age: "All", roadUser: "All" };
+    if (index === 1 || index === 2) state.year = "2021";
+    if (index === 0) drawLineChart("chart-canvas", state);
+    else if (index === 1) drawPyramidChart("chart-canvas", state);
+    else if (index === 2) drawSpiralChart("chart-canvas", state);
+    else if (index === 3) drawSankeyChart("chart-canvas", state);
 }
 
-// Window scroll listener
-window.addEventListener("scroll", () => {
+function syncScrollyStep(index, announce) {
     const steps = document.querySelectorAll(".step");
-    let active = 0;
-    steps.forEach((s, i) => { if (s.getBoundingClientRect().top <= window.innerHeight / 2) active = i; });
-    if (!steps[active].classList.contains("active")) {
-        steps.forEach(s => s.classList.remove("active"));
-        steps[active].classList.add("active");
-        updateScrolly(active);
+    if (index < 0 || index >= steps.length) return;
+
+    activeScrollyStep = index;
+    steps.forEach((s, i) => {
+        s.classList.toggle("active", i === index);
+        if (i === index) s.setAttribute("aria-current", "step");
+        else s.removeAttribute("aria-current");
+    });
+
+    if (announce) {
+        const status = document.getElementById("scrolly-status");
+        const title = steps[index].querySelector("h2");
+        if (status && title) status.textContent = `Section ${index + 1} of ${steps.length}: ${title.textContent}`;
     }
-});
+
+    updateScrollyChart(index);
+}
+
+function jumpScrollyStep(delta) {
+    const steps = document.querySelectorAll(".step");
+    const index = activeScrollyStep + delta;
+    if (index < 0 || index >= steps.length) return;
+
+    scrollyNavigating = true;
+    syncScrollyStep(index, true);
+    steps[index].scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => { scrollyNavigating = false; }, 700);
+}
+
+function initScrolly() {
+    const section = document.querySelector(".scrolly-section");
+    if (!section) return;
+
+    section.addEventListener("keydown", (e) => {
+        const tag = document.activeElement?.tagName;
+        if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || tag === "BUTTON") return;
+        if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); jumpScrollyStep(1); }
+        if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); jumpScrollyStep(-1); }
+    });
+
+    window.addEventListener("scroll", () => {
+        if (scrollyNavigating) return;
+        const steps = document.querySelectorAll(".step");
+        let active = 0;
+        steps.forEach((s, i) => { if (s.getBoundingClientRect().top <= window.innerHeight / 2) active = i; });
+        if (active !== activeScrollyStep) syncScrollyStep(active, false);
+    });
+}

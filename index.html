@@ -21,9 +21,12 @@
     </header>
 
     <main id="main-content">
+        <section class="scrolly-section" aria-label="Interactive story" tabindex="0">
+        <div id="scrolly-status" class="sr-only" role="status" aria-live="polite"></div>
+
         <div class="scrolly-container">
-        <div class="scroll-text">
-            <div class="step active" data-step="0">
+        <div class="scroll-text" id="scrolly-steps">
+            <div class="step active" data-step="0" aria-current="step">
                 <div class="step-card">
                     <span class="tag">01 // Injury Index over Time</span>
                     <h2>Traffic Injury Trends over Time: First Nations vs Baseline</h2>
@@ -61,10 +64,12 @@
 
         <div class="scroll-chart-view">
             <div class="dashboard-panel">
+                <p class="chart-hint">Chart updates as you scroll. Use arrow keys in the story area to jump between sections.</p>
                 <div class="canvas-mount" id="chart-canvas" role="figure" aria-label="Dynamic interactive chart matching the current scrollytelling step"></div>
             </div>
         </div>
     </div>
+        </section>
 
     <section class="bottom-dashboard-section">
 
@@ -77,54 +82,58 @@
                     <h3>Control Panel</h3>
                 </div>
 
-                <div class="ctrl-unit">
-                    <label for="global-gender">Gender</label>
-                    <select id="global-gender">
-                        <option value="All">All Genders</option>
-                        <option value="Male">Males Only</option>
-                        <option value="Female">Females Only</option>
-                    </select>
-                </div>
-                <div class="ctrl-unit">
-                    <label for="global-year">Year</label>
-                    <select id="global-year">
-                        <option value="All">All Years</option>
-                        <option value="2021">2021</option>
-                        <option value="2018">2018</option>
-                        <option value="2015">2015</option>
-                        <option value="2011">2011</option>
-                    </select>
-                </div>
-                <div class="ctrl-unit">
-                    <label for="global-region">Region</label>
-                    <select id="global-region">
-                        <option value="All">All Regions</option>
-                        <option value="Major Cities">Major Cities</option>
-                        <option value="Regional">Regional</option>
-                        <option value="Remote">Remote</option>
-                    </select>
-                </div>
-                <div class="ctrl-unit">
-                    <label for="global-age">Age Group</label>
-                    <select id="global-age">
-                        <option value="All">All Ages</option>
-                        <option value="0-16">0 to 16 Years</option>
-                        <option value="17-25">17 to 25 Years</option>
-                        <option value="26-64">26 to 64 Years</option>
-                        <option value="65+">65+ Years</option>
-                    </select>
-                </div>
-                <div class="ctrl-unit">
-                    <label for="global-roaduser">Road User</label>
-                    <select id="global-roaduser">
-                        <option value="All">All Vehicles</option>
-                        <option value="Car">Car/Van</option>
-                        <option value="Motorcycle">Motorcycle</option>
-                        <option value="Pedestrian">Pedestrian</option>
-                        <option value="Bicycle">Bicycle</option>
-                        <option value="Truck">Heavy Vehicle/Bus</option>
-                    </select>
-                </div>
+                <fieldset class="filter-fieldset">
+                    <legend class="sr-only">Filter hospitalisation data</legend>
+
+                    <div class="ctrl-unit">
+                        <label for="global-gender">Gender</label>
+                        <select id="global-gender">
+                            <option value="All">All Genders</option>
+                            <option value="Male">Males Only</option>
+                            <option value="Female">Females Only</option>
+                        </select>
+                    </div>
+                    <div class="ctrl-unit">
+                        <label for="global-year">Year</label>
+                        <select id="global-year">
+                            <option value="All">All Years</option>
+                            <option value="2021">2021</option>
+                            <option value="2018">2018</option>
+                            <option value="2015">2015</option>
+                            <option value="2011">2011</option>
+                        </select>
+                    </div>
+                    <div class="ctrl-unit">
+                        <label for="global-region">Region</label>
+                        <select id="global-region">
+                            <option value="All">All Regions</option>
+                            <option value="Major Cities">Major Cities</option>
+                            <option value="Regional">Regional</option>
+                            <option value="Remote">Remote</option>
+                        </select>
+                    </div>
+                    <div class="ctrl-unit">
+                        <label for="global-age">Age Group</label>
+                        <select id="global-age">
+                            <option value="All">All Ages</option>
+                            <option value="0-16">0 to 16 Years</option>
+                            <option value="17-25">17 to 25 Years</option>
+                            <option value="26-64">26 to 64 Years</option>
+                            <option value="65+">65+ Years</option>
+                        </select>
+                    </div>
+                    <div class="ctrl-unit">
+                        <label for="global-roaduser">Road User</label>
+                        <select id="global-roaduser">
+                            <option value="All">All Vehicles</option>
+                            <option value="Car">Car/Van</option>
+                            <option value="Motorcycle">Motorcycle</option>
+                            <option value="Pedestrian">Pedestrian</option>
+                            <option value="Bicycle">Bicycle</option>
+                            <option value="Truck">Heavy Vehicle/Bus</option>
+                        </select>
+                    </div>
+                </fieldset>
 
                 <div class="sidebar-divider"></div>
 
@@ -147,30 +156,32 @@
                         Reset Filters
                     </button>
                 </div>
-                <p class="export-hint" style="margin-top: 15px;">Downloads the currently filtered hospitalisation rows.
-                </p>
+                <p class="export-hint">Downloads the currently filtered hospitalisation rows.</p>
             </aside>
 
             <!-- RIGHT: Main dashboard content -->
             <div class="dashboard-main">
+                <div id="app-message" class="app-message" role="alert" aria-live="assertive" hidden></div>
+                <div id="dashboard-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
                 <div class="dashboard-editorial-header">
                     <h2>Interactive Data Exploration Dashboard</h2>
                     <p>Cross-examine database rows across multiple visual models simultaneously using unified global
                         parameters.</p>
                 </div>
 
-                <div class="kpi-summary-strip">
+                <div class="kpi-summary-strip" aria-label="Key performance indicators">
                     <div class="kpi-card text-blue">
-                        <div class="kpi-value" id="kpi-total-cases">0</div>
-                        <div class="kpi-label">Total Selected Hospitalisations</div>
+                        <div class="kpi-value" id="kpi-total-cases" aria-labelledby="kpi-total-label">0</div>
+                        <div class="kpi-label" id="kpi-total-label">Total Selected Hospitalisations</div>
                     </div>
                     <div class="kpi-card text-red">
-                        <div class="kpi-value" id="kpi-fn-cases">0</div>
-                        <div class="kpi-label">First Nations Cohort Volume</div>
+                        <div class="kpi-value" id="kpi-fn-cases" aria-labelledby="kpi-fn-label">0</div>
+                        <div class="kpi-label" id="kpi-fn-label">First Nations Cohort Volume</div>
                     </div>
                     <div class="kpi-card text-orange">
-                        <div class="kpi-value" id="kpi-severity-index">0.0 Days</div>
-                        <div class="kpi-label">Mean Hospital Stay (Trauma Intensity)</div>
+                        <div class="kpi-value" id="kpi-severity-index" aria-labelledby="kpi-severity-label">0.0 Days</div>
+                        <div class="kpi-label" id="kpi-severity-label">Mean Hospital Stay (Trauma Intensity)</div>
                     </div>
                 </div>
 
@@ -180,34 +191,37 @@
                     <div class="dash-card span-full">
                         <div class="panel-header">
                             <h3>01 // Indexed Growth Trajectory (2011 = 100%)</h3>
-                            <div class="panel-sub">Percentage growth: First Nations vs Non-Indigenous vs National</div>
+                            <div class="panel-sub">How injury rates changed over time — red solid: First Nations; orange dashed: Non-Indigenous; blue dashed: National (2011 = 100%).</div>
                         </div>
                         <div class="dash-card-canvas" id="dash-canvas-line" role="figure" aria-label="Line chart comparing percentage growth of First Nations, Non-Indigenous, and National transport injuries over time"></div>
+                        <p class="chart-hint">Tab into the chart to explore each year. Touch or click a data point for details.</p>
                     </div>
 
                     <div class="dash-card">
                         <div class="panel-header">
                             <h3>02 // Hospitalisations by Age Group</h3>
-                            <div class="panel-sub">First Nations (Red) vs Non-Indigenous (Orange)</div>
+                            <div class="panel-sub">Hospitalisations by age — striped bars are First Nations, solid bars are Non-Indigenous.</div>
                         </div>
                         <div class="dash-card-canvas" id="dash-canvas-pyramid" role="figure" aria-label="Pyramid chart showing hospitalisations across age groups, comparing First Nations and Non-Indigenous"></div>
+                        <p class="chart-hint">Tab into the chart to explore each age group. Touch or click a bar for details.</p>
                     </div>
 
                     <div class="dash-card">
                         <div class="panel-header">
                             <h3>03 // Monthly Hospitalisations by Vehicle Type</h3>
-                            <div class="panel-sub">Archimedean spiral heatmap tracking seasonal spikes</div>
+                            <div class="panel-sub">Monthly hospitalisations by vehicle type — brighter segments mean more cases.</div>
                         </div>
                         <div class="dash-card-canvas" id="dash-canvas-spiral" role="figure" aria-label="Spiral heatmap showing monthly hospitalisations grouped by vehicle type"></div>
+                        <p class="chart-hint">Tab into the chart to explore each month and vehicle type. Touch or click a segment for details.</p>
                     </div>
 
                     <div class="dash-card span-full">
                         <div class="panel-header">
                             <h3>04 // Systemic Trauma Flow</h3>
-                            <div class="panel-sub">Alluvial Sankey — Region → Vehicle Type → Severity of Stay. Hover any
-                                band or node for detail.</div>
+                            <div class="panel-sub">How injuries flow from region to vehicle type to hospital stay length. Select or hover any band or node for detail.</div>
                         </div>
                         <div class="dash-card-canvas" id="dash-canvas-bar" role="figure" aria-label="Sankey diagram tracing trauma flow from geographic region to vehicle type to severity of hospital stay"></div>
+                        <p class="chart-hint">Tab into the chart to explore flows and nodes. Touch or click for details.</p>
                     </div>
 
                 </div>
