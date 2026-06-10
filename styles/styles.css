@@ -541,6 +541,10 @@ body {
 .dash-bar { transition: opacity 0.2s; }
 .dash-bar:hover { opacity: 0.7; }
 .spiral-segment { transition: stroke 0.2s; }
+.dash-card-canvas svg,
+.canvas-mount svg {
+    will-change: opacity;
+}
 .sankey-link { transition: opacity 0.2s; }
 
 /* ── Footer ─────────────────────────────────────────────────────── */
