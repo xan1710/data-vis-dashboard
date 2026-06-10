@@ -4,9 +4,11 @@
     --card-bg: #1e293b;
     --text-dark: #f8fafc;
     --text-muted: #cbd5e1;
-    --accent-blue: #fb923c;
-    --accent-orange: #38bdf8;
+    --accent-blue: #38bdf8;
+    --accent-orange: #fb923c;
     --accent-red: #f87171;
+    --chart-blue: #38bdf8;
+    --chart-orange: #fb923c;
     --border-color: #334155;
     --grid-color: rgba(148, 163, 184, 0.15);
     --sidebar-width: 220px;

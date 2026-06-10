@@ -309,19 +309,19 @@ function drawLineChart(containerId, fState) {
     const lNon = d3.line().x(d => x(d.year)).y(d => y(d.nonIdx)).curve(d3.curveMonotoneX);
     const lFn = d3.line().x(d => x(d.year)).y(d => y(d.fnIdx)).curve(d3.curveMonotoneX);
 
-    svg.append("path").datum(data).attr("fill", "none").attr("stroke", "var(--accent-blue)").attr("stroke-dasharray", "4,4").attr("stroke-width", 2).attr("d", lNat).attr("aria-hidden", "true");
-    svg.append("path").datum(data).attr("fill", "none").attr("stroke", "var(--accent-orange)").attr("stroke-dasharray", "4,4").attr("stroke-width", 2).attr("d", lNon).attr("aria-hidden", "true");
+    svg.append("path").datum(data).attr("fill", "none").attr("stroke", "var(--chart-orange)").attr("stroke-dasharray", "4,4").attr("stroke-width", 2).attr("d", lNat).attr("aria-hidden", "true");
+    svg.append("path").datum(data).attr("fill", "none").attr("stroke", "var(--chart-blue)").attr("stroke-dasharray", "4,4").attr("stroke-width", 2).attr("d", lNon).attr("aria-hidden", "true");
     svg.append("path").datum(data).attr("fill", "none").attr("stroke", "var(--accent-red)").attr("stroke-width", 3).attr("d", lFn).attr("aria-hidden", "true");
 
     svg.append("text").attr("x", width - margin.right + 10).attr("y", y(data[10].fnIdx)).style("fill", "var(--accent-red)").attr("class", "chart-label").style("font-weight", "bold").text("First Nations").attr("aria-hidden", "true");
-    svg.append("text").attr("x", width - margin.right + 10).attr("y", y(data[10].nonIdx)).style("fill", "var(--accent-orange)").attr("class", "chart-label").style("font-weight", "bold").text("Non-Indigenous").attr("aria-hidden", "true");
-    svg.append("text").attr("x", width - margin.right + 10).attr("y", y(data[10].natIdx) + 15).style("fill", "var(--accent-blue)").attr("class", "chart-label").style("font-weight", "bold").text("National").attr("aria-hidden", "true");
+    svg.append("text").attr("x", width - margin.right + 10).attr("y", y(data[10].nonIdx)).style("fill", "var(--chart-blue)").attr("class", "chart-label").style("font-weight", "bold").text("Non-Indigenous").attr("aria-hidden", "true");
+    svg.append("text").attr("x", width - margin.right + 10).attr("y", y(data[10].natIdx) + 15).style("fill", "var(--chart-orange)").attr("class", "chart-label").style("font-weight", "bold").text("National").attr("aria-hidden", "true");
 
     function lineTip(d) {
         return `<div class="tooltip-title">Year ${d.year} Growth</div>
             <span style="color:var(--accent-red)">First Nations: <b>${d.fnIdx.toFixed(1)}%</b> (${d.fnRaw.toLocaleString()} cases)</span><br>
-            <span style="color:var(--accent-orange)">Non-Indigenous: <b>${d.nonIdx.toFixed(1)}%</b> (${d.nonRaw.toLocaleString()} cases)</span><br>
-            <span style="color:var(--accent-blue)">National Total: <b>${d.natIdx.toFixed(1)}%</b> (${d.natRaw.toLocaleString()} cases)</span>`;
+            <span style="color:var(--chart-blue)">Non-Indigenous: <b>${d.nonIdx.toFixed(1)}%</b> (${d.nonRaw.toLocaleString()} cases)</span><br>
+            <span style="color:var(--chart-orange)">National Total: <b>${d.natIdx.toFixed(1)}%</b> (${d.natRaw.toLocaleString()} cases)</span>`;
     }
 
     const step = x.step();
@@ -337,8 +337,8 @@ function drawLineChart(containerId, fState) {
         .on("mouseover focus", function (e, d) {
             svg.append("line").attr("class", "hover-line").attr("aria-hidden", "true").attr("x1", x(d.year)).attr("x2", x(d.year)).attr("y1", margin.top).attr("y2", height - margin.bottom).attr("stroke", "#94a3b8").attr("stroke-dasharray", "3,3");
             svg.append("circle").attr("class", "hover-dot").attr("aria-hidden", "true").attr("cx", x(d.year)).attr("cy", y(d.fnIdx)).attr("r", 6).attr("fill", "var(--accent-red)").attr("stroke", "#fff").attr("stroke-width", 2);
-            svg.append("circle").attr("class", "hover-dot").attr("aria-hidden", "true").attr("cx", x(d.year)).attr("cy", y(d.nonIdx)).attr("r", 6).attr("fill", "var(--accent-orange)").attr("stroke", "#fff").attr("stroke-width", 2);
-            svg.append("circle").attr("class", "hover-dot").attr("aria-hidden", "true").attr("cx", x(d.year)).attr("cy", y(d.natIdx)).attr("r", 6).attr("fill", "var(--accent-blue)").attr("stroke", "#fff").attr("stroke-width", 2);
+            svg.append("circle").attr("class", "hover-dot").attr("aria-hidden", "true").attr("cx", x(d.year)).attr("cy", y(d.nonIdx)).attr("r", 6).attr("fill", "var(--chart-blue)").attr("stroke", "#fff").attr("stroke-width", 2);
+            svg.append("circle").attr("class", "hover-dot").attr("aria-hidden", "true").attr("cx", x(d.year)).attr("cy", y(d.natIdx)).attr("r", 6).attr("fill", "var(--chart-orange)").attr("stroke", "#fff").attr("stroke-width", 2);
 
             showChartTip(this, lineTip(d), e);
         })
@@ -406,7 +406,7 @@ function drawPyramidChart(containerId, fState) {
 
     bindBarEvents(
         svg.selectAll(".rBar").data(data).enter().append("rect").attr("class", "dash-bar")
-            .attr("x", width / 2 + 35).attr("y", d => y(d.group)).attr("width", d => xR(d.non) - (width / 2 + 35)).attr("height", y.bandwidth()).attr("fill", "var(--accent-orange)"),
+            .attr("x", width / 2 + 35).attr("y", d => y(d.group)).attr("width", d => xR(d.non) - (width / 2 + 35)).attr("height", y.bandwidth()).attr("fill", "var(--chart-blue)"),
         "non", "Non-Indigenous"
     );
 
@@ -418,7 +418,7 @@ function drawPyramidChart(containerId, fState) {
     legend.append("rect").attr("x", 0).attr("y", 0).attr("width", 10).attr("height", 10).attr("fill", "url(#" + fnPatternId + ")").attr("rx", 2);
     legend.append("text").attr("x", 15).attr("y", 9).style("fill", "var(--text-muted)").attr("class", "chart-label").text("First Nations (striped)");
 
-    legend.append("rect").attr("x", 0).attr("y", 15).attr("width", 10).attr("height", 10).attr("fill", "var(--accent-orange)").attr("rx", 2);
+    legend.append("rect").attr("x", 0).attr("y", 15).attr("width", 10).attr("height", 10).attr("fill", "var(--chart-blue)").attr("rx", 2);
     legend.append("text").attr("x", 15).attr("y", 24).style("fill", "var(--text-muted)").attr("class", "chart-label").text("Non-Indigenous (solid)");
 }
 
@@ -546,9 +546,9 @@ function drawSankeyChart(containerId, fState) {
 
     // Colors
     const regionColor = {
-        "Major Cities": "#fb923c",
-        "Regional": "#38bdf8",
-        "Remote": "#f87171"
+        "Major Cities": "var(--chart-blue)",
+        "Regional": "var(--chart-orange)",
+        "Remote": "var(--accent-red)"
     };
     const vehicleColor = {
         "Car": "#3b82f6",
@@ -558,9 +558,9 @@ function drawSankeyChart(containerId, fState) {
         "Truck": "#6b7280"
     };
     const severityColor = {
-        "Minor Stay (< 3d)": "#fb923c",
-        "Moderate Stay (3–7d)": "#38bdf8",
-        "Severe Stay (> 7d)": "#f87171"
+        "Minor Stay (< 3d)": "var(--chart-blue)",
+        "Moderate Stay (3–7d)": "var(--chart-orange)",
+        "Severe Stay (> 7d)": "var(--accent-red)"
     };
 
     // Compute node totals
@@ -781,7 +781,7 @@ function drawSankeyChart(containerId, fState) {
         svg.append("text")
             .attr("x", h.x).attr("y", pad.top - 10)
             .attr("text-anchor", "middle")
-            .style("fill", "var(--accent-blue)").attr("class", "chart-label")
+            .style("fill", "var(--chart-blue)").attr("class", "chart-label")
             .style("font-weight", "800").style("text-transform", "uppercase").style("letter-spacing", "1.5px")
             .text(h.label).attr("aria-hidden", "true");
     });
