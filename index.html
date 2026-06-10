@@ -75,7 +75,7 @@
 
         <div class="dashboard-body">
 
-            <!-- LEFT: Sticky filter sidebar -->
+            <!-- Filter sidebar -->
             <aside class="filter-sidebar">
                 <div class="sidebar-header">
                     <span class="tag">Filters</span>
@@ -159,7 +159,7 @@
                 <p class="export-hint">Downloads the currently filtered hospitalisation rows.</p>
             </aside>
 
-            <!-- RIGHT: Main dashboard content -->
+            <!-- Dashboard -->
             <div class="dashboard-main">
                 <div id="app-message" class="app-message" role="alert" aria-live="assertive" hidden></div>
                 <div id="dashboard-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -168,6 +168,7 @@
                     <h2>Interactive Data Exploration Dashboard</h2>
                     <p>Cross-examine database rows across multiple visual models simultaneously using unified global
                         parameters.</p>
+                    <p class="chart-hint">Tab into any chart to explore the data. Touch or click for details.</p>
                 </div>
 
                 <div class="kpi-summary-strip" aria-label="Key performance indicators">
@@ -185,7 +186,7 @@
                     </div>
                 </div>
 
-                <!-- 1×2×1 grid: line full-width, then 2-col middle, bar full-width -->
+                <!-- Charts -->
                 <div class="analytics-dashboard-grid">
 
                     <div class="dash-card span-full">
@@ -194,7 +195,6 @@
                             <div class="panel-sub">How injury rates changed over time — red solid: First Nations; orange dashed: Non-Indigenous; blue dashed: National (2011 = 100%).</div>
                         </div>
                         <div class="dash-card-canvas" id="dash-canvas-line" role="figure" aria-label="Line chart comparing percentage growth of First Nations, Non-Indigenous, and National transport injuries over time"></div>
-                        <p class="chart-hint">Tab into the chart to explore each year. Touch or click a data point for details.</p>
                     </div>
 
                     <div class="dash-card">
@@ -203,7 +203,6 @@
                             <div class="panel-sub">Hospitalisations by age — striped bars are First Nations, solid bars are Non-Indigenous.</div>
                         </div>
                         <div class="dash-card-canvas" id="dash-canvas-pyramid" role="figure" aria-label="Pyramid chart showing hospitalisations across age groups, comparing First Nations and Non-Indigenous"></div>
-                        <p class="chart-hint">Tab into the chart to explore each age group. Touch or click a bar for details.</p>
                     </div>
 
                     <div class="dash-card">
@@ -212,7 +211,6 @@
                             <div class="panel-sub">Monthly hospitalisations by vehicle type — brighter segments mean more cases.</div>
                         </div>
                         <div class="dash-card-canvas" id="dash-canvas-spiral" role="figure" aria-label="Spiral heatmap showing monthly hospitalisations grouped by vehicle type"></div>
-                        <p class="chart-hint">Tab into the chart to explore each month and vehicle type. Touch or click a segment for details.</p>
                     </div>
 
                     <div class="dash-card span-full">
@@ -221,7 +219,6 @@
                             <div class="panel-sub">How injuries flow from region to vehicle type to hospital stay length. Select or hover any band or node for detail.</div>
                         </div>
                         <div class="dash-card-canvas" id="dash-canvas-bar" role="figure" aria-label="Sankey diagram tracing trauma flow from geographic region to vehicle type to severity of hospital stay"></div>
-                        <p class="chart-hint">Tab into the chart to explore flows and nodes. Touch or click for details.</p>
                     </div>
 
                 </div>
