@@ -238,6 +238,33 @@ body {
     color: #070a12;
 }
 
+/* Reset button */
+.reset-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--text-muted);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 10px;
+}
+
+.reset-btn:hover {
+    background: var(--text-muted);
+    color: #070a12;
+}
+
 .export-hint {
     margin: -8px 0 0 0;
     font-size: 0.7rem;
