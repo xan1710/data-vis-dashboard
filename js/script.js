@@ -1,9 +1,8 @@
-// --- BASE CANVAS SETUP ---
+// Canvas layout
 const width = 800;
 const height = 400;
 const margin = { top: 40, right: 120, bottom: 50, left: 60 };
 
-// Shared HTML Tooltip
 const tooltip = d3.select("body").append("div")
     .attr("class", "chart-tooltip")
     .attr("id", "chart-tooltip")
@@ -51,6 +50,7 @@ function hideAppMessage() {
     if (el) el.hidden = true;
 }
 
+// Animated chart updates when filters change
 const CHART_TRANSITION_MS = 650;
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let dashboardChartsReady = false;
@@ -87,7 +87,7 @@ function tweenKpiText(selector, endValue, format) {
     });
 }
 
-// --- DATA STATE & FILTERS ---
+// Global state
 let rawFN = [];
 let rawHosp = [];
 
@@ -96,7 +96,7 @@ let dashFilters = {
     year: "All",
     region: "All",
     age: "All",
-    roadUser: "All"  // FIX #3: camelCase matches fState.roadUser used in filterHospData
+    roadUser: "All"
 };
 
 let activeScrollyStep = 0;
@@ -106,13 +106,12 @@ d3.selectAll(".canvas-mount, .dash-card-canvas").each(function () {
     d3.select(this).append("div").attr("class", "chart-loading").attr("role", "status").text("Loading hospitalisation data…");
 });
 
-// --- DATA LOADING ---
+// Load CSV data
 Promise.all([
     d3.csv("data/First-Nations-hospitalised-injuries-compiled-raw.csv"),
     d3.csv("data/hospitalisation_injury_publication_sep2023.csv")
 ]).then(([fnData, hospData]) => {
 
-    // Clean numerics
     const cleanNum = v => +String(v).replace(/,/g, "").replace("n.p.", "0").trim() || 0;
 
     rawFN = fnData.filter(d => d["Cause of injury = traffic"] === "Traffic").map(d => ({
@@ -147,7 +146,7 @@ Promise.all([
 });
 
 
-// --- HELPER MAPPINGS ---
+// Data helpers
 function mapVehicle(ru) {
     const s = String(ru).toLowerCase();
     if (s.includes("pedestrian")) return "Pedestrian";
@@ -158,7 +157,6 @@ function mapVehicle(ru) {
     return "Other";
 }
 
-// FIX #4: Updated matchAge to correctly handle HOSP data's 65-74 and 75+ age groups
 function matchAge(dbAge, filterAge) {
     if (filterAge === "All") return true;
     const a = dbAge.toLowerCase();
@@ -169,11 +167,9 @@ function matchAge(dbAge, filterAge) {
     return false;
 }
 
-// Data pipelines
 function filterHospData(fState) {
     return rawHosp.filter(d => {
         if (fState.year !== "All" && d.year !== +fState.year) return false;
-        // FIX #2: Use exact match to prevent "Male" from matching "Female"
         if (fState.gender !== "All" && d.sex.toLowerCase() !== fState.gender.toLowerCase()) return false;
         if (fState.region !== "All" && !d.area.toLowerCase().includes(fState.region.toLowerCase().substring(0, 4))) return false;
         if (fState.roadUser !== "All" && mapVehicle(d.roadUser) !== fState.roadUser) return false;
@@ -182,11 +178,10 @@ function filterHospData(fState) {
     });
 }
 
-// --- DASHBOARD RENDERING ROUTER ---
+// Dashboard
 function renderDashboard() {
     const hospSubset = filterHospData(dashFilters);
 
-    // KPI Math
     const tCases = d3.sum(hospSubset, d => d.cases);
     const tDays = d3.sum(hospSubset, d => d.days);
     const mStay = tCases > 0 ? (tDays / tCases) : 0;
@@ -194,11 +189,9 @@ function renderDashboard() {
     let fnBase = rawFN.filter(d => d.catType === "Age group");
     if (dashFilters.year !== "All") fnBase = fnBase.filter(d => d.year === +dashFilters.year);
 
-    // FIX #1 (KPI): sum all age groups instead of filtering for non-existent "All ages"
     if (dashFilters.age !== "All") {
         fnBase = fnBase.filter(d => matchAge(d.catValue, dashFilters.age));
     }
-    // When age === "All", use all individual age group rows (they sum correctly per year/status)
 
     const fnCases = d3.sum(fnBase.filter(d => d.status === "First Nations people"), d => d.cases);
 
@@ -213,7 +206,6 @@ function renderDashboard() {
         d3.select("#kpi-severity-index").text(mStay.toFixed(2) + " d");
     }
 
-    // Draw Charts
     drawLineChart("dash-canvas-line", dashFilters, animate);
     drawPyramidChart("dash-canvas-pyramid", dashFilters, animate);
     drawSpiralChart("dash-canvas-spiral", dashFilters, animate);
@@ -231,7 +223,7 @@ d3.selectAll(".filter-sidebar select").on("change", function () {
     renderDashboard();
 });
 
-// --- CSV EXPORT ---
+// Export filtered data
 document.getElementById("export-csv-btn").addEventListener("click", () => {
     const subset = filterHospData(dashFilters);
 
@@ -242,7 +234,6 @@ document.getElementById("export-csv-btn").addEventListener("click", () => {
 
     hideAppMessage();
 
-    // Build CSV header + rows
     const headers = ["Year", "Month", "Region", "Sex", "Age Group", "Road User", "Hospitalisations", "Bed Days"];
     const rows = subset.map(d => [
         d.year,
@@ -259,7 +250,6 @@ document.getElementById("export-csv-btn").addEventListener("click", () => {
         .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
         .join("\n");
 
-    // Compose a descriptive filename from active filters
     const parts = [];
     if (dashFilters.year !== "All") parts.push(dashFilters.year);
     if (dashFilters.region !== "All") parts.push(dashFilters.region.replace(/\s+/g, "-"));
@@ -278,7 +268,6 @@ document.getElementById("export-csv-btn").addEventListener("click", () => {
     showAppMessage(`Exported ${subset.length.toLocaleString()} rows to ${filename}.`, "success");
 });
 
-// --- RESET FILTERS ---
 document.getElementById("reset-filters-btn").addEventListener("click", () => {
     dashFilters = {
         gender: "All",
@@ -298,9 +287,7 @@ document.getElementById("reset-filters-btn").addEventListener("click", () => {
     renderDashboard();
 });
 
-// --- CHART BUILDERS ---
-
-// 1. Line Chart (Indexed % Growth with Safe Math & Universal Hover)
+// Line chart
 function drawLineChart(containerId, fState, animate) {
     const isDashboard = containerId.startsWith("dash-canvas-");
     const parent = d3.select("#" + containerId);
@@ -309,7 +296,6 @@ function drawLineChart(containerId, fState, animate) {
 
     if (!isDashboard || !updating) parent.html("");
 
-    // FIX #1: "All ages" row doesn't exist in the data — sum all individual age groups per year.
     let subset;
     if (fState.age === "All") {
         subset = rawFN.filter(d => d.catType === "Age group");
@@ -436,7 +422,7 @@ function drawLineChart(containerId, fState, animate) {
         .attr("height", height - margin.top - margin.bottom);
 }
 
-// 2. Population Pyramid Chart (Independent Scales)
+// Pyramid chart
 function drawPyramidChart(containerId, fState, animate) {
     const isDashboard = containerId.startsWith("dash-canvas-");
     const parent = d3.select("#" + containerId);
@@ -526,7 +512,7 @@ function drawPyramidChart(containerId, fState, animate) {
         .attr("y", d => y(d.group) + y.bandwidth() / 2 + 4);
 }
 
-// 3. Archimedean Spiral Heatmap
+// Spiral heatmap
 function drawSpiralChart(containerId, fState, animate) {
     const isDashboard = containerId.startsWith("dash-canvas-");
     const parent = d3.select("#" + containerId);
@@ -631,7 +617,7 @@ function drawSpiralChart(containerId, fState, animate) {
     }
 }
 
-// 4. Sankey: Region → Vehicle → Severity
+// Sankey diagram
 function drawSankeyChart(containerId, fState, animate) {
     const isDashboard = containerId.startsWith("dash-canvas-");
     const parent = d3.select("#" + containerId);
@@ -651,7 +637,6 @@ function drawSankeyChart(containerId, fState, animate) {
         parent.html("");
     }
 
-    // ── dimensions ──────────────────────────────────────────────────────────
     const W = 860, H = 420;
     const pad = { top: 20, right: 160, bottom: 20, left: 150 };
     const nodeW = 14, nodeGap = 10;
@@ -661,7 +646,6 @@ function drawSankeyChart(containerId, fState, animate) {
         .style("overflow", "visible");
     svg.append("title").text("Sankey diagram: trauma flow from region through vehicle type to severity of hospital stay");
 
-    // ── build raw links from filtered data ──────────────────────────────────
     const subset = filterHospData(fState);
 
     function getSeverity(cases, days) {
@@ -672,7 +656,6 @@ function drawSankeyChart(containerId, fState, animate) {
         return "Severe Stay (> 7d)";
     }
 
-    // Aggregate: region → vehicle → severity → cases+days
     const agg = {};
     subset.forEach(d => {
         const region = d.area;
@@ -686,12 +669,10 @@ function drawSankeyChart(containerId, fState, animate) {
         agg[k].days += d.days;
     });
 
-    // ── nodes ────────────────────────────────────────────────────────────────
     const regions = ["Major Cities", "Regional", "Remote"];
     const vehicles = ["Car", "Motorcycle", "Bicycle", "Pedestrian", "Truck"];
     const severities = ["Minor Stay (< 3d)", "Moderate Stay (3–7d)", "Severe Stay (> 7d)"];
 
-    // Colors
     const regionColor = {
         "Major Cities": "var(--chart-blue)",
         "Regional": "var(--chart-orange)",
@@ -710,7 +691,6 @@ function drawSankeyChart(containerId, fState, animate) {
         "Severe Stay (> 7d)": "var(--accent-red)"
     };
 
-    // Compute node totals
     const regionTotal = Object.fromEntries(regions.map(r => [r, 0]));
     const vehicleTotal = Object.fromEntries(vehicles.map(v => [v, 0]));
     const severityTotal = Object.fromEntries(severities.map(s => [s, 0]));
@@ -729,7 +709,6 @@ function drawSankeyChart(containerId, fState, animate) {
         return;
     }
 
-    // ── layout helper: position nodes in a column ────────────────────────────
     function layoutColumn(names, totals, xPos) {
         const usableH = H - pad.top - pad.bottom;
         const totalGap = nodeGap * (names.length - 1);
@@ -756,18 +735,14 @@ function drawSankeyChart(containerId, fState, animate) {
     const nodeMap = {};
     [...regionNodes, ...vehicleNodes, ...severityNodes].forEach(n => nodeMap[n.name] = n);
 
-    // ── link computation ─────────────────────────────────────────────────────
-    // For each node, track running offset for outflow (right) and inflow (left)
-    const outOffset = {}; // name → current y offset out
-    const inOffset = {}; // name → current y offset in
+    const outOffset = {};
+    const inOffset = {};
     [...regionNodes, ...vehicleNodes, ...severityNodes].forEach(n => {
         outOffset[n.name] = 0;
         inOffset[n.name] = 0;
     });
 
-    // Links: Region → Vehicle
     const rv_links = [];
-    // Sort by region then vehicle for stable stacking
     regions.forEach(region => {
         vehicles.forEach(vehicle => {
             const cases = d3.sum(
@@ -782,7 +757,6 @@ function drawSankeyChart(containerId, fState, animate) {
         });
     });
 
-    // Links: Vehicle → Severity
     const vs_links = [];
     vehicles.forEach(vehicle => {
         severities.forEach(sev => {
@@ -798,7 +772,6 @@ function drawSankeyChart(containerId, fState, animate) {
         });
     });
 
-    // Compute link heights proportional to node height
     function computeLinkGeometry(links) {
         return links.map(link => {
             const { source: s, target: t, cases } = link;
@@ -820,7 +793,6 @@ function drawSankeyChart(containerId, fState, animate) {
     const rvGeom = computeLinkGeometry(rv_links);
     const vsGeom = computeLinkGeometry(vs_links);
 
-    // ── draw links ───────────────────────────────────────────────────────────
     function drawLinks(links, xSrcRight, xTgtLeft) {
         const g = svg.append("g").attr("class", "sankey-links");
         links.forEach(link => {
@@ -865,7 +837,6 @@ function drawSankeyChart(containerId, fState, animate) {
     drawLinks(rvGeom, colX1 + nodeW, colX2);
     drawLinks(vsGeom, colX2 + nodeW, colX3);
 
-    // ── draw nodes ───────────────────────────────────────────────────────────
     function drawNodes(nodes, colorMap, labelSide) {
         nodes.forEach(node => {
             const g = svg.append("g").style("cursor", "pointer");
@@ -918,7 +889,6 @@ function drawSankeyChart(containerId, fState, animate) {
     drawNodes(vehicleNodes, vehicleColor, "right");
     drawNodes(severityNodes, severityColor, "right");
 
-    // ── column header labels ─────────────────────────────────────────────────
     const colHeaders = [
         { label: "Region", x: colX1 + nodeW / 2 },
         { label: "Vehicle Type", x: colX2 + nodeW / 2 },
@@ -953,7 +923,7 @@ function drawSankeyChart(containerId, fState, animate) {
     });
 }
 
-// --- SCROLLYTELLING ---
+// Scrollytelling
 function updateScrollyChart(index) {
     const state = { gender: "All", year: "All", region: "All", age: "All", roadUser: "All" };
     if (index === 1 || index === 2) state.year = "2021";

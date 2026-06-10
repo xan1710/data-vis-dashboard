@@ -12,7 +12,6 @@
     --border-color: #334155;
     --grid-color: rgba(148, 163, 184, 0.15);
     --sidebar-width: 220px;
-    /* WCAG 2.1 AA: 16px body, 14px minimum UI copy (4.5:1 with --text-muted on dark bg) */
     --font-base: 1rem;
     --font-small: 0.875rem;
 }
@@ -31,7 +30,7 @@ body {
     padding: 0;
 }
 
-/* ── Accessibility ──────────────────────────────────────────────── */
+/* Accessibility */
 .skip-link {
     position: absolute;
     top: -50px;
@@ -109,7 +108,7 @@ body {
     }
 }
 
-/* ── Narrative hero ─────────────────────────────────────────────── */
+/* Hero */
 .hero-narrative-section {
     background-color: var(--card-bg);
     color: #ffffff;
@@ -147,7 +146,7 @@ body {
     margin: 0 auto;
 }
 
-/* ── Scrollytelling ─────────────────────────────────────────────── */
+/* Scrollytelling */
 .scrolly-section {
     max-width: 1500px;
     margin: 0 auto;
@@ -232,7 +231,7 @@ body {
     margin-bottom: 0;
 }
 
-/* ── Canvas mounts ──────────────────────────────────────────────── */
+/* Chart canvases */
 .canvas-mount {
     width: 100%;
     flex-grow: 1;
@@ -250,7 +249,7 @@ body {
     left: 0;
 }
 
-/* ── Bottom dashboard section ───────────────────────────────────── */
+/* Dashboard section */
 .bottom-dashboard-section {
     padding: 40px;
 }
@@ -263,7 +262,7 @@ body {
     margin: 0 auto;
 }
 
-/* ── Filter sidebar ─────────────────────────────────────────────── */
+/* Filter sidebar */
 .filter-sidebar {
     width: var(--sidebar-width);
     flex-shrink: 0;
@@ -373,7 +372,7 @@ body {
     text-align: center;
 }
 
-/* ── Main dashboard area ────────────────────────────────────────── */
+/* Dashboard main */
 .dashboard-main {
     flex: 1;
     min-width: 0;
@@ -394,7 +393,7 @@ body {
     font-size: var(--font-small);
 }
 
-/* ── KPI strip ──────────────────────────────────────────────────── */
+/* KPI strip */
 .kpi-summary-strip {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -444,7 +443,7 @@ body {
     border-radius: 8px;
 }
 
-/* ── Dashboard grid ─────────────────────────────────────────────── */
+/* Chart grid */
 .analytics-dashboard-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -487,7 +486,7 @@ body {
     height: 460px;
 }
 
-/* ── SVG chart text ─────────────────────────────────────────────── */
+/* Chart labels */
 .axis path,
 .axis line {
     stroke: var(--border-color);
@@ -503,7 +502,7 @@ body {
     stroke: var(--grid-color);
 }
 
-/* ── Tooltip ────────────────────────────────────────────────────── */
+/* Tooltip */
 .chart-tooltip {
     position: absolute;
     padding: 12px;
@@ -547,7 +546,7 @@ body {
 }
 .sankey-link { transition: opacity 0.2s; }
 
-/* ── Footer ─────────────────────────────────────────────────────── */
+/* Footer */
 footer {
     text-align: center;
     padding: 30px;
@@ -557,7 +556,7 @@ footer {
     background-color: var(--bg-dark);
 }
 
-/* ── Responsive ─────────────────────────────────────────────────── */
+/* Responsive */
 @media (max-width: 1100px) {
     .scrolly-container { flex-direction: column; }
     .scroll-text, .scroll-chart-view { width: 100%; }
