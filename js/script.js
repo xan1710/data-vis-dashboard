@@ -546,8 +546,8 @@ function drawSankeyChart(containerId, fState) {
 
     // Colors
     const regionColor = {
-        "Major Cities": "#38bdf8",
-        "Regional": "#fb923c",
+        "Major Cities": "#fb923c",
+        "Regional": "#38bdf8",
         "Remote": "#f87171"
     };
     const vehicleColor = {
@@ -558,8 +558,8 @@ function drawSankeyChart(containerId, fState) {
         "Truck": "#6b7280"
     };
     const severityColor = {
-        "Minor Stay (< 3d)": "#38bdf8",
-        "Moderate Stay (3–7d)": "#fb923c",
+        "Minor Stay (< 3d)": "#fb923c",
+        "Moderate Stay (3–7d)": "#38bdf8",
         "Severe Stay (> 7d)": "#f87171"
     };
 
