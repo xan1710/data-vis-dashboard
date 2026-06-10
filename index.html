@@ -10,16 +10,18 @@
 </head>
 
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
 
-    <section class="hero-narrative-section">
+    <header class="hero-narrative-section">
         <div class="narrative-container">
             <h1>Are Our Roads Safer for Everyone or Just Some?</h1>
             <p class="lead-text">An interactive evaluation of core transport injury registries, seasonal accident
                 cycles, and regional health resource inequality across Australia.</p>
         </div>
-    </section>
+    </header>
 
-    <div class="scrolly-container">
+    <main id="main-content">
+        <div class="scrolly-container">
         <div class="scroll-text">
             <div class="step active" data-step="0">
                 <div class="step-card">
@@ -59,7 +61,7 @@
 
         <div class="scroll-chart-view">
             <div class="dashboard-panel">
-                <div class="canvas-mount" id="chart-canvas"></div>
+                <div class="canvas-mount" id="chart-canvas" role="figure" aria-label="Dynamic interactive chart matching the current scrollytelling step"></div>
             </div>
         </div>
     </div>
@@ -128,7 +130,7 @@
 
                 <div class="sidebar-buttons">
                     <button class="export-btn" id="export-csv-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        <svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                             <polyline points="7 10 12 15 17 10" />
@@ -137,7 +139,7 @@
                         Export Filtered CSV
                     </button>
                     <button class="reset-btn" id="reset-filters-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        <svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                             <path d="M3 3v5h5" />
@@ -180,7 +182,7 @@
                             <h3>01 // Indexed Growth Trajectory (2011 = 100%)</h3>
                             <div class="panel-sub">Percentage growth: First Nations vs Non-Indigenous vs National</div>
                         </div>
-                        <div class="dash-card-canvas" id="dash-canvas-line"></div>
+                        <div class="dash-card-canvas" id="dash-canvas-line" role="figure" aria-label="Line chart comparing percentage growth of First Nations, Non-Indigenous, and National transport injuries over time"></div>
                     </div>
 
                     <div class="dash-card">
@@ -188,7 +190,7 @@
                             <h3>02 // Hospitalisations by Age Group</h3>
                             <div class="panel-sub">First Nations (Red) vs Non-Indigenous (Orange)</div>
                         </div>
-                        <div class="dash-card-canvas" id="dash-canvas-pyramid"></div>
+                        <div class="dash-card-canvas" id="dash-canvas-pyramid" role="figure" aria-label="Pyramid chart showing hospitalisations across age groups, comparing First Nations and Non-Indigenous"></div>
                     </div>
 
                     <div class="dash-card">
@@ -196,7 +198,7 @@
                             <h3>03 // Monthly Hospitalisations by Vehicle Type</h3>
                             <div class="panel-sub">Archimedean spiral heatmap tracking seasonal spikes</div>
                         </div>
-                        <div class="dash-card-canvas" id="dash-canvas-spiral"></div>
+                        <div class="dash-card-canvas" id="dash-canvas-spiral" role="figure" aria-label="Spiral heatmap showing monthly hospitalisations grouped by vehicle type"></div>
                     </div>
 
                     <div class="dash-card span-full">
@@ -205,7 +207,7 @@
                             <div class="panel-sub">Alluvial Sankey — Region → Vehicle Type → Severity of Stay. Hover any
                                 band or node for detail.</div>
                         </div>
-                        <div class="dash-card-canvas" id="dash-canvas-bar"></div>
+                        <div class="dash-card-canvas" id="dash-canvas-bar" role="figure" aria-label="Sankey diagram tracing trauma flow from geographic region to vehicle type to severity of hospital stay"></div>
                     </div>
 
                 </div>
@@ -213,13 +215,12 @@
 
         </div>
     </section>
+    </main>
 
     <footer>
         <p>Strategic Road Safety Campaign Dashboard Console • Built in D3.js v7</p>
     </footer>
 
-    <script src="js/script.js"></script>
-    <link rel="stylesheet" href="styles/styles.css">
     <script src="js/script.js"></script>
 </body>
 

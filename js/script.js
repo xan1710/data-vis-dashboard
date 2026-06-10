@@ -257,7 +257,8 @@ function drawLineChart(containerId, fState) {
     svg.selectAll(".hover-zone").data(data).enter().append("rect").attr("class", "hover-zone")
         .attr("x", d => x(d.year) - step / 2).attr("y", margin.top).attr("width", step).attr("height", height - margin.top - margin.bottom).attr("fill", "transparent")
         .style("cursor", "crosshair")
-        .on("mouseover", function (e, d) {
+        .attr("tabindex", "0")
+        .on("mouseover focus", function (e, d) {
             svg.append("line").attr("class", "hover-line").attr("x1", x(d.year)).attr("x2", x(d.year)).attr("y1", margin.top).attr("y2", height - margin.bottom).attr("stroke", "#94a3b8").attr("stroke-dasharray", "3,3");
             svg.append("circle").attr("class", "hover-dot").attr("cx", x(d.year)).attr("cy", y(d.fnIdx)).attr("r", 6).attr("fill", "var(--accent-red)").attr("stroke", "#fff").attr("stroke-width", 2);
             svg.append("circle").attr("class", "hover-dot").attr("cx", x(d.year)).attr("cy", y(d.nonIdx)).attr("r", 6).attr("fill", "var(--accent-orange)").attr("stroke", "#fff").attr("stroke-width", 2);
@@ -269,9 +270,13 @@ function drawLineChart(containerId, fState) {
                 <span style="color:var(--accent-orange)">Non-Indigenous: <b>${d.nonIdx.toFixed(1)}%</b> (${d.nonRaw.toLocaleString()} cases)</span><br>
                 <span style="color:var(--accent-blue)">National Total: <b>${d.natIdx.toFixed(1)}%</b> (${d.natRaw.toLocaleString()} cases)</span>
             `);
+            if (e.type === "focus") {
+                const rect = this.getBoundingClientRect();
+                tooltip.style("left", (rect.left + window.scrollX + rect.width / 2) + "px").style("top", (rect.top + window.scrollY + 20) + "px");
+            }
         })
         .on("mousemove", e => tooltip.style("left", (e.pageX + 15) + "px").style("top", (e.pageY - 15) + "px"))
-        .on("mouseout", function () { svg.selectAll(".hover-line, .hover-dot").remove(); tooltip.style("opacity", 0); });
+        .on("mouseout blur", function () { svg.selectAll(".hover-line, .hover-dot").remove(); tooltip.style("opacity", 0); });
 }
 
 // 2. Population Pyramid Chart (Independent Scales)
@@ -306,15 +311,29 @@ function drawPyramidChart(containerId, fState) {
 
     svg.selectAll(".lBar").data(data).enter().append("rect").attr("class", "dash-bar")
         .attr("x", d => xL(d.fn)).attr("y", d => y(d.group)).attr("width", d => (width / 2 - 35) - xL(d.fn)).attr("height", y.bandwidth()).attr("fill", "var(--accent-red)")
-        .on("mouseover", (e, d) => tooltip.style("opacity", 1).html(`<div class="tooltip-title">First Nations (Age ${d.group})</div>Total: <b>${d.fn.toLocaleString()}</b> cases`))
+        .attr("tabindex", "0")
+        .on("mouseover focus", function (e, d) {
+            tooltip.style("opacity", 1).html(`<div class="tooltip-title">First Nations (Age ${d.group})</div>Total: <b>${d.fn.toLocaleString()}</b> cases`);
+            if (e.type === "focus") {
+                const rect = this.getBoundingClientRect();
+                tooltip.style("left", (rect.left + window.scrollX + rect.width / 2) + "px").style("top", (rect.top + window.scrollY - 15) + "px");
+            }
+        })
         .on("mousemove", e => tooltip.style("left", (e.pageX + 15) + "px").style("top", (e.pageY - 15) + "px"))
-        .on("mouseout", () => tooltip.style("opacity", 0));
+        .on("mouseout blur", () => tooltip.style("opacity", 0));
 
     svg.selectAll(".rBar").data(data).enter().append("rect").attr("class", "dash-bar")
         .attr("x", width / 2 + 35).attr("y", d => y(d.group)).attr("width", d => xR(d.non) - (width / 2 + 35)).attr("height", y.bandwidth()).attr("fill", "var(--accent-orange)")
-        .on("mouseover", (e, d) => tooltip.style("opacity", 1).html(`<div class="tooltip-title">Non-Indigenous (Age ${d.group})</div>Total: <b>${d.non.toLocaleString()}</b> cases`))
+        .attr("tabindex", "0")
+        .on("mouseover focus", function (e, d) {
+            tooltip.style("opacity", 1).html(`<div class="tooltip-title">Non-Indigenous (Age ${d.group})</div>Total: <b>${d.non.toLocaleString()}</b> cases`);
+            if (e.type === "focus") {
+                const rect = this.getBoundingClientRect();
+                tooltip.style("left", (rect.left + window.scrollX + rect.width / 2) + "px").style("top", (rect.top + window.scrollY - 15) + "px");
+            }
+        })
         .on("mousemove", e => tooltip.style("left", (e.pageX + 15) + "px").style("top", (e.pageY - 15) + "px"))
-        .on("mouseout", () => tooltip.style("opacity", 0));
+        .on("mouseout blur", () => tooltip.style("opacity", 0));
 
     svg.selectAll(".lbl").data(data).enter().append("text")
         .attr("x", width / 2).attr("y", d => y(d.group) + y.bandwidth() / 2 + 4).attr("text-anchor", "middle").style("fill", "var(--text-dark)").style("font-size", "11px").style("font-weight", "bold").text(d => d.group);
@@ -364,12 +383,17 @@ function drawSpiralChart(containerId, fState) {
         .attr("fill", d => d.val === 0 ? "rgba(255,255,255,0.02)" : color(d.val))
         .attr("stroke", "var(--panel-bg)").attr("stroke-width", "1.5px")
         .style("cursor", "pointer")
-        .on("mouseover", function (e, d) {
+        .attr("tabindex", "0")
+        .on("mouseover focus", function (e, d) {
             d3.select(this).attr("stroke", "#fff").attr("stroke-width", "2px");
             tooltip.style("opacity", 1).html(`<div class="tooltip-title">${d.v}</div>Month: ${d.m}<br>Cases: <b>${d.val.toLocaleString()}</b>`);
+            if (e.type === "focus") {
+                const rect = this.getBoundingClientRect();
+                tooltip.style("left", (rect.left + window.scrollX + rect.width / 2) + "px").style("top", (rect.top + window.scrollY - 15) + "px");
+            }
         })
         .on("mousemove", e => tooltip.style("left", (e.pageX + 15) + "px").style("top", (e.pageY - 15) + "px"))
-        .on("mouseout", function () {
+        .on("mouseout blur", function () {
             d3.select(this).attr("stroke", "var(--panel-bg)").attr("stroke-width", "1.5px");
             tooltip.style("opacity", 0);
         });
@@ -596,16 +620,21 @@ function drawSankeyChart(containerId, fState) {
                 .attr("opacity", 0.25)
                 .attr("class", "sankey-link")
                 .style("cursor", "pointer")
-                .on("mouseover", function (e) {
+                .attr("tabindex", "0")
+                .on("mouseover focus", function (e) {
                     d3.select(this).attr("opacity", 0.65);
                     tooltip.style("opacity", 1).html(`
                         <div class="tooltip-title">${link.source.name} → ${link.target.name}</div>
                         Hospitalisations: <b>${cases.toLocaleString()}</b><br>
                         Share of total: <b>${pct}%</b>
                     `);
+                    if (e.type === "focus") {
+                        const rect = this.getBoundingClientRect();
+                        tooltip.style("left", (rect.left + window.scrollX + rect.width / 2) + "px").style("top", (rect.top + window.scrollY - 15) + "px");
+                    }
                 })
                 .on("mousemove", e => tooltip.style("left", (e.pageX + 15) + "px").style("top", (e.pageY - 15) + "px"))
-                .on("mouseout", function () {
+                .on("mouseout blur", function () {
                     d3.select(this).attr("opacity", 0.25);
                     tooltip.style("opacity", 0);
                 });
@@ -626,16 +655,21 @@ function drawSankeyChart(containerId, fState) {
                 .attr("width", nodeW).attr("height", node.h)
                 .attr("fill", colorMap[node.name] || "#94a3b8")
                 .attr("rx", 3)
-                .on("mouseover", function (e) {
+                .attr("tabindex", "0")
+                .on("mouseover focus", function (e) {
                     d3.select(this).attr("opacity", 0.8);
                     tooltip.style("opacity", 1).html(`
                         <div class="tooltip-title">${node.name}</div>
                         Hospitalisations: <b>${node.total.toLocaleString()}</b><br>
                         Share of total: <b>${pct}%</b>
                     `);
+                    if (e.type === "focus") {
+                        const rect = this.getBoundingClientRect();
+                        tooltip.style("left", (rect.left + window.scrollX + rect.width / 2) + "px").style("top", (rect.top + window.scrollY - 15) + "px");
+                    }
                 })
                 .on("mousemove", e => tooltip.style("left", (e.pageX + 15) + "px").style("top", (e.pageY - 15) + "px"))
-                .on("mouseout", function () { d3.select(this).attr("opacity", 1); tooltip.style("opacity", 0); });
+                .on("mouseout blur", function () { d3.select(this).attr("opacity", 1); tooltip.style("opacity", 0); });
 
             const midY = node.y + node.h / 2;
             const textX = labelSide === "left" ? node.x - 8 :
