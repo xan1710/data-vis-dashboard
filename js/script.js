@@ -1,25 +1,29 @@
-// Canvas layout
+// ── Chart dimensions and margins used by all SVG charts ──────────────────────
 const width = 800;
 const height = 400;
 const margin = { top: 40, right: 120, bottom: 50, left: 60 };
 
+// ── Shared floating tooltip appended once to the page body ───────────────────
 const tooltip = d3.select("body").append("div")
     .attr("class", "chart-tooltip")
     .attr("id", "chart-tooltip")
     .attr("role", "tooltip")
     .attr("aria-hidden", "true");
 
+// Show the tooltip at a given x/y position with HTML content
 function showTooltip(html, x, y, el) {
     tooltip.attr("aria-hidden", "false").style("opacity", 1).html(html)
         .style("left", x + "px").style("top", y + "px");
     if (el) el.setAttribute("aria-describedby", "chart-tooltip");
 }
 
+// Hide the tooltip and remove its link to the triggering element
 function hideTooltip(el) {
     tooltip.attr("aria-hidden", "true").style("opacity", 0);
     if (el) el.removeAttribute("aria-describedby");
 }
 
+// Position tooltip near the mouse, or above the element if triggered by keyboard focus
 function showChartTip(el, html, e) {
     if (e.type === "focus") {
         const r = el.getBoundingClientRect();
@@ -29,12 +33,14 @@ function showChartTip(el, html, e) {
     }
 }
 
+// Update the hidden screen-reader status bar with current KPI values
 function announceDashboardStatus(tCases, fnCases, mStay) {
     const el = document.getElementById("dashboard-status");
     if (!el) return;
     el.textContent = `${tCases.toLocaleString()} hospitalisations shown. First Nations: ${fnCases.toLocaleString()}. Mean stay: ${mStay.toFixed(1)} days.`;
 }
 
+// Show a success or error message banner above the dashboard
 function showAppMessage(text, type) {
     const el = document.getElementById("app-message");
     if (!el) return;
@@ -43,24 +49,31 @@ function showAppMessage(text, type) {
     el.hidden = false;
 }
 
+// Hide the message banner
 function hideAppMessage() {
     const el = document.getElementById("app-message");
     if (el) el.hidden = true;
 }
 
-// Animated chart updates when filters change
+// ── Animation helpers ─────────────────────────────────────────────────────────
+// Duration in ms for all chart transitions
 const CHART_TRANSITION_MS = 650;
+// Check if the user has requested reduced motion in their OS settings
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Tracks whether the dashboard charts have been drawn at least once (enables animations after first draw)
 let dashboardChartsReady = false;
 
+// Returns a D3 transition with the standard duration and easing
 function chartTransition(selection) {
     return selection.transition().duration(CHART_TRANSITION_MS).ease(d3.easeCubicInOut);
 }
 
+// Applies the transition only when animate is true, otherwise returns the selection unchanged
 function applyTransition(selection, animate) {
     return animate ? chartTransition(selection) : selection;
 }
 
+// Clears or reuses an existing SVG depending on whether the chart is in the dashboard
 function prepareChart(containerId) {
     const isDashboard = containerId.startsWith("dash-canvas-");
     const parent = d3.select("#" + containerId);
@@ -70,6 +83,7 @@ function prepareChart(containerId) {
     return { parent, svg, updating };
 }
 
+// Attaches mouseover/focus/mouseout/blur tooltip events to a D3 selection
 function bindHoverTip(selection, tipFn) {
     return selection
         .on("mouseover focus", function (e, d) { showChartTip(this, tipFn(d), e); })
@@ -77,6 +91,7 @@ function bindHoverTip(selection, tipFn) {
         .on("mouseout blur", function () { hideTooltip(this); });
 }
 
+// Like bindHoverTip but also changes opacity on hover — used for Sankey links and nodes
 function bindOpacityTip(selection, tipHtml, hoverOpacity, restOpacity) {
     return selection
         .on("mouseover focus", function (e) { d3.select(this).attr("opacity", hoverOpacity); showChartTip(this, tipHtml, e); })
@@ -84,16 +99,19 @@ function bindOpacityTip(selection, tipHtml, hoverOpacity, restOpacity) {
         .on("mouseout blur", function () { d3.select(this).attr("opacity", restOpacity); hideTooltip(this); });
 }
 
+// Interpolates a line path between two datasets for smooth animated transitions
 function tweenPathY(line, prev, next, key) {
     return () => t => line(prev.map((d, i) => ({ year: d.year, [key]: d[key] + t * (next[i][key] - d[key]) })));
 }
 
+// D3 data join helper — removes exited elements and merges new ones with existing
 function updateDataJoin(svg, cls, data, keyFn, enterFn) {
     const join = svg.selectAll(cls).data(data, keyFn);
     join.exit().remove();
     return enterFn(join.enter()).merge(join);
 }
 
+// Animates a KPI number counting up or down from its current displayed value
 function tweenKpiText(selector, endValue, format) {
     const el = d3.select(selector);
     const node = el.node();
@@ -106,7 +124,7 @@ function tweenKpiText(selector, endValue, format) {
     });
 }
 
-// Shared constants
+// ── Shared constants ──────────────────────────────────────────────────────────
 const DEFAULT_FILTERS = { gender: "All", year: "All", region: "All", age: "All", roadUser: "All" };
 const VEHICLES = ["Car", "Motorcycle", "Bicycle", "Pedestrian", "Truck"];
 const COHORTS = ["0-7", "8-16", "17-25", "26-39", "40-64", "65+"];
@@ -115,41 +133,58 @@ const LINE_YEARS = d3.range(2011, 2022);
 const FILTER_SELECTS = ["#global-gender", "#global-year", "#global-region", "#global-age", "#global-roaduser"];
 const CHART_DRAWERS = [drawLineChart, drawPyramidChart, drawSpiralChart, drawSankeyChart];
 const DASH_IDS = ["dash-canvas-line", "dash-canvas-pyramid", "dash-canvas-spiral", "dash-canvas-bar"];
+// Config for each of the three lines in the line chart
 const LINE_SERIES = [
     { cls: "line-fn", key: "fnIdx", color: "var(--accent-red)", dash: null, width: 3, label: "First Nations", labelOff: 0 },
     { cls: "line-non", key: "nonIdx", color: "var(--chart-blue)", dash: "4,4", width: 2, label: "Non-Indigenous", labelOff: 0 },
     { cls: "line-nat", key: "natIdx", color: "var(--chart-orange)", dash: "4,4", width: 2, label: "National", labelOff: 15 }
 ];
 
-// Global state
-let rawFN = [];
-let rawHosp = [];
+// ── Global state ──────────────────────────────────────────────────────────────
+let rawFN = [];       // Parsed First Nations CSV data
+let rawHosp = [];     // Parsed hospitalisation publication CSV data
 let dashFilters = { ...DEFAULT_FILTERS };
 let activeScrollyStep = 0;
 let scrollyNavigating = false;
 let scrollySteps = [];
 
+// Show a loading spinner inside every chart container while data loads
 d3.selectAll(".canvas-mount, .dash-card-canvas").each(function () {
     d3.select(this).append("div").attr("class", "chart-loading").attr("role", "status").text("Loading hospitalisation data…");
 });
 
-// Load CSV data
+// ── Data loading ──────────────────────────────────────────────────────────────
 Promise.all([
-    d3.csv("data/First-Nations-hospitalised-injuries-compiled-raw.csv"),
+    d3.csv("data/Cleaned-First-Nations-Data.csv"),
     d3.csv("data/hospitalisation_injury_publication_sep2023.csv")
 ]).then(([fnData, hospData]) => {
 
-    const cleanNum = v => +String(v).replace(/,/g, "").replace("n.p.", "0").trim() || 0;
+    // Strip commas, suppressed "n.p." values, and extra quotes from numeric fields
+    const cleanNum = v => +String(v).replace(/,/g, "").replace(/n\.p\./g, "0").replace(/"/g, "").trim() || 0;
+    // Strip quotes and Windows carriage returns from string fields
+    const cleanStr = v => String(v == null ? "" : v).replace(/"/g, "").replace(/\r/g, "").trim();
 
-    rawFN = fnData.filter(d => d["Cause of injury = traffic"] === "Traffic").map(d => ({
-        year: +d["Calendar year"],
-        status: d["First Nations status"].trim(),
-        catType: d["Category Type"].trim(),
-        catValue: d["Category Value"].trim(),
-        cases: cleanNum(d["Hospitalisations"]),
-        days: cleanNum(d["Bed days excluding died in hospitals within 30 days"])
-    }));
+    // KNIME CSV Writer wraps column headers in quotes — strip them so field lookups work correctly
+    function rekey(row) {
+        const out = {};
+        for (const k of Object.keys(row)) out[cleanStr(k)] = row[k];
+        return out;
+    }
 
+    // Parse the First Nations dataset, keeping only Traffic injury rows
+    rawFN = fnData
+        .map(rekey)
+        .filter(d => cleanStr(d["Cause of injury = traffic"]) === "Traffic")
+        .map(d => ({
+            year: +cleanStr(d["Calendar year"]),
+            status: cleanStr(d["First Nations status"]),
+            catType: cleanStr(d["Category Type"]).toLowerCase(),
+            catValue: cleanStr(d["Category Value"]),
+            cases: cleanNum(d["Hospitalisations"]),
+            days: cleanNum(d["Bed days excluding died in hospitals within 30 days"])
+        }));
+
+    // Parse the general hospitalisation dataset, keeping only Traffic injury rows
     rawHosp = hospData.filter(d => d["Cause of injury"] === "Traffic").map(d => ({
         year: +d["Calendar year"],
         month: d["Month"].trim(),
@@ -175,7 +210,9 @@ Promise.all([
 });
 
 
-// Data helpers
+// ── Data helper functions ─────────────────────────────────────────────────────
+
+// Maps the raw road user description to one of five simplified vehicle categories
 function mapVehicle(ru) {
     const s = String(ru).toLowerCase();
     if (s.includes("pedestrian")) return "Pedestrian";
@@ -186,14 +223,17 @@ function mapVehicle(ru) {
     return "Other";
 }
 
+// Returns true if a row's age band matches the selected filter age group
 function matchAge(dbAge, filterAge) {
     if (filterAge === "All") return true;
     if (!COHORTS.includes(filterAge)) return false;
     if (dbAge === filterAge) return true;
+    // The hospitalisation CSV splits 65+ into 65-74 and 75+, so match both
     if (filterAge === "65+" && (dbAge === "65-74" || dbAge === "75+")) return true;
     return false;
 }
 
+// Fills the year dropdown from the actual years present in both datasets
 function populateYearFilter() {
     const years = [...new Set([...rawHosp, ...rawFN].map(d => d.year))].sort((a, b) => b - a);
     const select = d3.select("#global-year");
@@ -203,6 +243,7 @@ function populateYearFilter() {
     if (current !== "All" && years.includes(+current)) select.property("value", current);
 }
 
+// Filters the hospitalisation dataset against all active dashboard filters
 function filterHospData(fState) {
     return rawHosp.filter(d => {
         if (fState.year !== "All" && d.year !== +fState.year) return false;
@@ -214,16 +255,19 @@ function filterHospData(fState) {
     });
 }
 
+// Maps the hospitalisation CSV's age bands to the First Nations cohort labels
 function hospToCohort(age) {
     if (age === "65-74" || age === "75+") return "65+";
     return COHORTS.includes(age) ? age : null;
 }
 
+// Sums hospitalisation cases for a given age cohort from a set of rows
 function sumHospByCohort(rows, cohort) {
     return d3.sum(rows.filter(d => hospToCohort(d.age) === cohort), d => d.cases);
 }
 
-// Scale FN age cohorts when gender/region/vehicle filters are active (FN CSV has no those cross-tabs).
+// The First Nations CSV has no gender/region/vehicle breakdown, so when those
+// filters are active we scale FN counts proportionally using the hospitalisation dataset
 function pyramidCohortScale(fState) {
     const yr = fState.year !== "All" ? +fState.year : 2021;
     if (fState.gender === "All" && fState.region === "All" && fState.roadUser === "All") return null;
@@ -236,7 +280,9 @@ function pyramidCohortScale(fState) {
     }));
 }
 
-// Dashboard
+// ── Dashboard render ──────────────────────────────────────────────────────────
+
+// Recalculates KPI values and redraws all four charts based on current filters
 function renderDashboard() {
     const hospSubset = filterHospData(dashFilters);
 
@@ -244,15 +290,13 @@ function renderDashboard() {
     const tDays = d3.sum(hospSubset, d => d.days);
     const mStay = tCases > 0 ? (tDays / tCases) : 0;
 
-    let fnBase = rawFN.filter(d => d.catType === "Age group");
+    // First Nations KPI uses the age group category from the FN dataset
+    let fnBase = rawFN.filter(d => d.catType === "age group");
     if (dashFilters.year !== "All") fnBase = fnBase.filter(d => d.year === +dashFilters.year);
-
-    if (dashFilters.age !== "All") {
-        fnBase = fnBase.filter(d => matchAge(d.catValue, dashFilters.age));
-    }
-
+    if (dashFilters.age !== "All") fnBase = fnBase.filter(d => matchAge(d.catValue, dashFilters.age));
     const fnCases = d3.sum(fnBase.filter(d => d.status === "First Nations people"), d => d.cases);
 
+    // Animate KPI counters if the charts are already drawn, otherwise set directly
     const animate = dashboardChartsReady && !prefersReducedMotion;
     [
         ["#kpi-total-cases", tCases, v => Math.round(v).toLocaleString()],
@@ -266,15 +310,17 @@ function renderDashboard() {
     announceDashboardStatus(tCases, fnCases, mStay);
 }
 
-d3.selectAll(".filter-sidebar select").on("change", function () {
+// Re-render the dashboard whenever any filter dropdown changes
+d3.selectAll(".filter-sidebar select").on("change", function() {
     let id = d3.select(this).attr("id").replace("global-", "");
+    // The HTML id uses lowercase "roaduser" but the filter object uses camelCase "roadUser"
     if (id === "roaduser") id = "roadUser";
     dashFilters[id] = this.value;
     hideAppMessage();
     renderDashboard();
 });
 
-// Export filtered data
+// ── Export button ─────────────────────────────────────────────────────────────
 document.getElementById("export-csv-btn").addEventListener("click", () => {
     const subset = filterHospData(dashFilters);
 
@@ -291,11 +337,13 @@ document.getElementById("export-csv-btn").addEventListener("click", () => {
         Hospitalisations: d.cases, "Bed Days": d.days
     })));
 
+    // Build a descriptive filename from whichever filters are currently active
     const parts = ["year", "region", "gender", "age", "roadUser"]
         .filter(k => dashFilters[k] !== "All")
         .map(k => k === "age" ? `age-${dashFilters[k]}` : k === "region" ? dashFilters[k].replace(/\s+/g, "-") : dashFilters[k]);
     const filename = `road-safety-export${parts.length ? "-" + parts.join("-") : ""}.csv`;
 
+    // Trigger a browser download without navigating away
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = Object.assign(document.createElement("a"), { href: url, download: filename });
@@ -306,6 +354,7 @@ document.getElementById("export-csv-btn").addEventListener("click", () => {
     showAppMessage(`Exported ${subset.length.toLocaleString()} rows to ${filename}.`, "success");
 });
 
+// ── Reset button ──────────────────────────────────────────────────────────────
 document.getElementById("reset-filters-btn").addEventListener("click", () => {
     dashFilters = { ...DEFAULT_FILTERS };
     FILTER_SELECTS.forEach(sel => d3.select(sel).property("value", "All"));
@@ -313,16 +362,18 @@ document.getElementById("reset-filters-btn").addEventListener("click", () => {
     renderDashboard();
 });
 
-// Line chart
+// ── Chart 1: Line chart ───────────────────────────────────────────────────────
+// Shows indexed growth (2011 = 100%) for First Nations, Non-Indigenous, and National
+// Uses the Road user category from the FN dataset to match the KNIME source chart
 function drawLineChart(containerId, fState, animate) {
     const { parent, updating } = prepareChart(containerId);
     let svg = parent.select("svg");
 
-    let subset = rawFN.filter(d => d.catType === "Age group");
-    if (fState.age !== "All") subset = subset.filter(d => matchAge(d.catValue, fState.age));
+    const subset = rawFN.filter(d => d.catType === "road user");
 
+    // Sum cases per year per status, then convert to percentage index relative to 2011
     let data = LINE_YEARS.map(yr => {
-        const fn = d3.sum(subset.filter(d => d.year === yr && d.status === "First Nations people"), d => d.cases);
+        const fn  = d3.sum(subset.filter(d => d.year === yr && d.status === "First Nations people"), d => d.cases);
         const non = d3.sum(subset.filter(d => d.year === yr && d.status === "Non-Indigenous"), d => d.cases);
         return { year: yr, fn: fn, non: non, nat: fn + non };
     });
@@ -346,6 +397,7 @@ function drawLineChart(containerId, fState, animate) {
 
     const y = d3.scaleLinear().domain([0, maxVal * 1.15]).range([height - margin.bottom, margin.top]);
 
+    // Build the SVG structure only on first draw — subsequent updates just change data
     if (!updating) {
         svg = parent.append("svg").attr("viewBox", `0 0 ${width} ${height}`);
         svg.append("title").text("Indexed growth trajectory: First Nations, Non-Indigenous, and National transport injuries over time");
@@ -374,6 +426,7 @@ function drawLineChart(containerId, fState, animate) {
         const path = svg.select("." + s.cls);
         const prevData = path.datum() || data;
         path.datum(data);
+        // Animate the line path morphing between old and new data
         if (trans) chartTransition(path).attrTween("d", tweenPathY(line, prevData, data, s.key));
         else path.attr("d", line);
         applyTransition(svg.select(`.line-label-${s.cls.slice(5)}`), trans).attr("y", y(last[s.key]) + s.labelOff);
@@ -386,6 +439,7 @@ function drawLineChart(containerId, fState, animate) {
             <span style="color:var(--chart-orange)">National Total: <b>${d.natIdx.toFixed(1)}%</b> (${d.natRaw.toLocaleString()} cases)</span>`;
     }
 
+    // Invisible rectangles covering each year column — used as hover/focus targets
     const step = x.step();
     const zones = svg.selectAll(".hover-zone").data(data, d => d.year);
     zones.exit().remove();
@@ -401,6 +455,7 @@ function drawLineChart(containerId, fState, animate) {
             `National ${d.natIdx.toFixed(1)}% (${d.natRaw.toLocaleString()} cases)`)
         .on("mouseover focus", function (e, d) {
             const cx = x(d.year);
+            // Draw a vertical guide line and dots on each series at the hovered year
             svg.append("line").attr("class", "hover-line").attr("aria-hidden", "true")
                 .attr("x1", cx).attr("x2", cx).attr("y1", margin.top).attr("y2", height - margin.bottom)
                 .attr("stroke", "#94a3b8").attr("stroke-dasharray", "3,3");
@@ -421,13 +476,15 @@ function drawLineChart(containerId, fState, animate) {
         .attr("height", height - margin.top - margin.bottom);
 }
 
-// Pyramid chart
+// ── Chart 2: Population pyramid ───────────────────────────────────────────────
+// Mirrored horizontal bar chart — First Nations on the left, Non-Indigenous on the right
 function drawPyramidChart(containerId, fState, animate) {
     const { parent, updating } = prepareChart(containerId);
     let svg = parent.select("svg");
 
     const yr = fState.year !== "All" ? +fState.year : 2021;
-    const subset = rawFN.filter(d => d.catType === "Age group" && d.year === yr);
+    const subset = rawFN.filter(d => d.catType === "age group" && d.year === yr);
+    // If gender/region/vehicle filters are active, scale FN counts to approximate the filtered population
     const scale = pyramidCohortScale(fState);
 
     const data = COHORTS.map(c => {
@@ -442,6 +499,7 @@ function drawPyramidChart(containerId, fState, animate) {
     const y = d3.scaleBand().domain(COHORTS).range([height - margin.bottom, margin.top]).padding(0.2);
     const xMaxFn = d3.max(data, d => d.fn) || 1;
     const xMaxNon = d3.max(data, d => d.non) || 1;
+    // Each side uses its own scale so the shape is comparable even with very different totals
     const xL = d3.scaleLinear().domain([0, xMaxFn]).range([width / 2 - 35, margin.left]);
     const xR = d3.scaleLinear().domain([0, xMaxNon]).range([width / 2 + 35, width - margin.right]);
     const fnPatternId = "pattern-fn-" + containerId;
@@ -453,6 +511,7 @@ function drawPyramidChart(containerId, fState, animate) {
         svg.append("g").attr("transform", `translate(0,${height - margin.bottom})`).attr("class", "axis axis-right");
         svg.selectAll(".axis").attr("aria-hidden", "true");
 
+        // SVG pattern used to fill First Nations bars with a diagonal stripe texture
         const patternDefs = svg.append("defs");
         const fnPattern = patternDefs.append("pattern")
             .attr("id", fnPatternId).attr("patternUnits", "userSpaceOnUse").attr("width", 6).attr("height", 6);
@@ -468,6 +527,7 @@ function drawPyramidChart(containerId, fState, animate) {
 
     const trans = animate && updating;
     const mid = width / 2;
+    // Fade out age groups that don't match the active age filter
     const ageFocus = fState.age !== "All" ? fState.age : null;
     const cohortOpacity = d => !ageFocus || d.group === ageFocus ? 1 : 0.2;
 
@@ -497,16 +557,19 @@ function drawPyramidChart(containerId, fState, animate) {
         .attr("opacity", cohortOpacity);
 }
 
-// Spiral heatmap
+// ── Chart 3: Spiral heatmap ───────────────────────────────────────────────────
+// Archimedean spiral where each ring is a vehicle type and each segment is a month
+// Colour intensity represents number of hospitalisations (log scale)
 function drawSpiralChart(containerId, fState, animate) {
     const { parent, updating } = prepareChart(containerId);
     let svg = parent.select("svg");
 
     const subset = filterHospData(fState);
     const gradientId = "spiral-gradient-" + containerId;
-    const baseR = 50;
-    const rThick = 26;
+    const baseR = 50;   // Inner radius of the innermost ring
+    const rThick = 26;  // Thickness of each ring
 
+    // One data point per vehicle × month combination
     const data = VEHICLES.flatMap((v, vIdx) => MONTHS.map((m, mIdx) => ({
         v, vIdx, m, mIdx,
         val: d3.sum(subset.filter(d => mapVehicle(d.roadUser) === v && d.month === m), x => x.cases),
@@ -514,9 +577,11 @@ function drawSpiralChart(containerId, fState, animate) {
     })));
 
     const maxVal = d3.max(data, d => d.val) || 1;
+    // Log scale so low-value segments still show some colour rather than going black
     const color = d3.scaleSequentialLog(d3.interpolateRgb("#0f172a", "#ef4444")).domain([1, maxVal]);
     const segmentFill = d => d.val === 0 ? "rgba(255,255,255,0.02)" : color(d.val);
 
+    // Calculates the SVG arc path for one spiral segment — the offset creates the spiral effect
     function arcPath(d) {
         const offset = (d.mIdx / 12) * (rThick * 0.85);
         const innerR = baseR + (d.vIdx * rThick) + offset;
@@ -530,6 +595,7 @@ function drawSpiralChart(containerId, fState, animate) {
         svg.append("title").text("Spiral heatmap: monthly hospitalisations by vehicle type");
         const g = svg.append("g").attr("class", "spiral-root").attr("transform", `translate(300, 300)`);
 
+        // Month labels around the outside of the spiral
         MONTHS.forEach((m, i) => {
             const ang = ((i + 0.5) * 2 * Math.PI) / 12 - Math.PI / 2;
             const radius = baseR + (VEHICLES.length * rThick) + 20;
@@ -537,11 +603,13 @@ function drawSpiralChart(containerId, fState, animate) {
                 .attr("text-anchor", "middle").style("fill", "var(--text-muted)").style("font-weight", "bold").text(m.substring(0, 3)).attr("aria-hidden", "true");
         });
 
+        // Vehicle labels along the top of the spiral
         VEHICLES.forEach((v, i) => {
             g.append("text").attr("class", "chart-label spiral-vehicle-label").attr("x", 5).attr("y", -(baseR + (i * rThick) + 12))
                 .attr("text-anchor", "start").style("fill", "var(--text-muted)").text(v).attr("aria-hidden", "true");
         });
 
+        // Colour legend bar at the bottom of the chart
         const defs = svg.append("defs");
         const gradient = defs.append("linearGradient").attr("id", gradientId).attr("x1", "0%").attr("y1", "0%").attr("x2", "100%").attr("y2", "0%");
         gradient.append("stop").attr("offset", "0%").attr("stop-color", "#0f172a");
@@ -564,6 +632,7 @@ function drawSpiralChart(containerId, fState, animate) {
         .on("mousemove", (e, d) => showTooltip(spiralTip(d), e.pageX + 15, e.pageY - 15))
         .on("mouseout blur", function () { d3.select(this).attr("stroke", "var(--panel-bg)").attr("stroke-width", "1.5px"); hideTooltip(this); });
 
+    // Animate segment colours fading between old and new values when filters change
     if (animate && updating) {
         segmentsAll.each(function (d) {
             const node = d3.select(this);
@@ -579,13 +648,16 @@ function drawSpiralChart(containerId, fState, animate) {
     }
 }
 
-// Sankey diagram
+// ── Chart 4: Sankey diagram ───────────────────────────────────────────────────
+// Flows: Region → Vehicle Type → Severity of Stay
+// Band width is proportional to number of hospitalisations
 function drawSankeyChart(containerId, fState, animate) {
     const isDashboard = containerId.startsWith("dash-canvas-");
     const parent = d3.select("#" + containerId);
     const existingSvg = parent.select("svg");
     const updating = isDashboard && !existingSvg.empty();
 
+    // Sankey is redrawn from scratch on update — fade out old chart, draw new, fade in
     if (!isDashboard) {
         parent.html("");
     } else if (updating && animate) {
@@ -610,6 +682,7 @@ function drawSankeyChart(containerId, fState, animate) {
 
     const subset = filterHospData(fState);
 
+    // Classify each row into Minor/Moderate/Severe based on average bed days per case
     function getSeverity(cases, days) {
         if (!cases) return null;
         const avg = days / cases;
@@ -618,6 +691,7 @@ function drawSankeyChart(containerId, fState, animate) {
         return "Severe Stay (> 7d)";
     }
 
+    // Aggregate all rows into region × vehicle × severity buckets
     const agg = {};
     subset.forEach(d => {
         const region = d.area;
@@ -634,32 +708,19 @@ function drawSankeyChart(containerId, fState, animate) {
     const regions = ["Major Cities", "Regional", "Remote"];
     const severities = ["Minor Stay (< 3d)", "Moderate Stay (3–7d)", "Severe Stay (> 7d)"];
 
-    const regionColor = {
-        "Major Cities": "var(--chart-blue)",
-        "Regional": "var(--chart-orange)",
-        "Remote": "var(--accent-red)"
-    };
-    const vehicleColor = {
-        "Car": "#3b82f6",
-        "Motorcycle": "#8b5cf6",
-        "Bicycle": "#10b981",
-        "Pedestrian": "#f59e0b",
-        "Truck": "#6b7280"
-    };
-    const severityColor = {
-        "Minor Stay (< 3d)": "var(--chart-blue)",
-        "Moderate Stay (3–7d)": "var(--chart-orange)",
-        "Severe Stay (> 7d)": "var(--accent-red)"
-    };
+    const regionColor = { "Major Cities": "var(--chart-blue)", "Regional": "var(--chart-orange)", "Remote": "var(--accent-red)" };
+    const vehicleColor = { "Car": "#3b82f6", "Motorcycle": "#8b5cf6", "Bicycle": "#10b981", "Pedestrian": "#f59e0b", "Truck": "#6b7280" };
+    const severityColor = { "Minor Stay (< 3d)": "var(--chart-blue)", "Moderate Stay (3–7d)": "var(--chart-orange)", "Severe Stay (> 7d)": "var(--accent-red)" };
 
-    const regionTotal = Object.fromEntries(regions.map(r => [r, 0]));
-    const vehicleTotal = Object.fromEntries(VEHICLES.map(v => [v, 0]));
+    // Sum totals per node so we can size bars proportionally
+    const regionTotal   = Object.fromEntries(regions.map(r => [r, 0]));
+    const vehicleTotal  = Object.fromEntries(VEHICLES.map(v => [v, 0]));
     const severityTotal = Object.fromEntries(severities.map(s => [s, 0]));
 
     Object.values(agg).forEach(({ region, vehicle, sev, cases }) => {
-        if (regionTotal[region] !== undefined) regionTotal[region] += cases;
+        if (regionTotal[region]   !== undefined) regionTotal[region]   += cases;
         if (vehicleTotal[vehicle] !== undefined) vehicleTotal[vehicle] += cases;
-        if (severityTotal[sev] !== undefined) severityTotal[sev] += cases;
+        if (severityTotal[sev]    !== undefined) severityTotal[sev]    += cases;
     });
 
     const totalCases = d3.sum(regions, r => regionTotal[r]);
@@ -670,6 +731,7 @@ function drawSankeyChart(containerId, fState, animate) {
         return;
     }
 
+    // Returns an array of node objects with y positions for one column of the Sankey
     function layoutColumn(names, totals, xPos) {
         const usableH = H - pad.top - pad.bottom;
         const totalGap = nodeGap * (names.length - 1);
@@ -689,15 +751,17 @@ function drawSankeyChart(containerId, fState, animate) {
     const colX2 = W / 2 - nodeW / 2;
     const colX3 = W - pad.right - nodeW;
 
-    const regionNodes = layoutColumn(regions, regionTotal, colX1);
-    const vehicleNodes = layoutColumn(VEHICLES, vehicleTotal, colX2);
+    const regionNodes   = layoutColumn(regions,    regionTotal,   colX1);
+    const vehicleNodes  = layoutColumn(VEHICLES,   vehicleTotal,  colX2);
     const severityNodes = layoutColumn(severities, severityTotal, colX3);
 
     const allNodes = [...regionNodes, ...vehicleNodes, ...severityNodes];
     const nodeMap = Object.fromEntries(allNodes.map(n => [n.name, n]));
+    // Track how much of each node's height has already been claimed by drawn links
     const outOffset = Object.fromEntries(allNodes.map(n => [n.name, 0]));
-    const inOffset = Object.fromEntries(allNodes.map(n => [n.name, 0]));
+    const inOffset  = Object.fromEntries(allNodes.map(n => [n.name, 0]));
 
+    // Builds a list of links between two node groups, summing cases from the aggregation
     function makeLinks(fromList, toList, fromKey, toKey, colorFn) {
         const links = [];
         fromList.forEach(from => {
@@ -715,6 +779,7 @@ function drawSankeyChart(containerId, fState, animate) {
     const rv_links = makeLinks(regions, VEHICLES, "region", "vehicle", r => regionColor[r]);
     const vs_links = makeLinks(VEHICLES, severities, "vehicle", "sev", v => vehicleColor[v]);
 
+    // Calculates the y coordinates for each end of every link band
     function computeLinkGeometry(links) {
         return links.map(link => {
             const { source: s, target: t, cases } = link;
@@ -739,6 +804,7 @@ function drawSankeyChart(containerId, fState, animate) {
         return `<div class="tooltip-title">${title}</div>Hospitalisations: <b>${count.toLocaleString()}</b><br>Share of total: <b>${pct}%</b>`;
     }
 
+    // Draws bezier curve bands between two columns
     function drawLinks(links, xSrcRight, xTgtLeft) {
         const g = svg.append("g").attr("class", "sankey-links");
         const cx = (xSrcRight + xTgtLeft) / 2;
@@ -758,6 +824,7 @@ function drawSankeyChart(containerId, fState, animate) {
     drawLinks(rvGeom, colX1 + nodeW, colX2);
     drawLinks(vsGeom, colX2 + nodeW, colX3);
 
+    // Draws the coloured node rectangles and their labels
     function drawNodes(nodes, colorMap, labelSide) {
         const anchor = labelSide === "left" ? "end" : labelSide === "right" ? "start" : "middle";
         nodes.forEach(node => {
@@ -781,9 +848,10 @@ function drawSankeyChart(containerId, fState, animate) {
         });
     }
 
+    // Draw all three columns and their column header labels
     [
-        [regionNodes, regionColor, "left", "Region", colX1],
-        [vehicleNodes, vehicleColor, "right", "Vehicle Type", colX2],
+        [regionNodes,   regionColor,   "left",  "Region",           colX1],
+        [vehicleNodes,  vehicleColor,  "right", "Vehicle Type",     colX2],
         [severityNodes, severityColor, "right", "Severity of Stay", colX3]
     ].forEach(([nodes, colors, side, label, colX]) => {
         drawNodes(nodes, colors, side);
@@ -793,6 +861,7 @@ function drawSankeyChart(containerId, fState, animate) {
             .text(label).attr("aria-hidden", "true");
     });
 
+    // Vehicle colour legend along the bottom of the chart
     const itemW = 90;
     const legendStartX = colX2 - 4 - Object.keys(vehicleColor).length * itemW / 2 + nodeW / 2;
     Object.entries(vehicleColor).forEach(([name, color], i) => {
@@ -804,15 +873,19 @@ function drawSankeyChart(containerId, fState, animate) {
     });
 }
 
-// Scrollytelling
+// ── Scrollytelling ────────────────────────────────────────────────────────────
+
+// Draws the correct chart into the scrolly panel for the given step index
 function updateScrollyChart(index) {
     const draw = CHART_DRAWERS[index];
     if (!draw) return;
     const state = { ...DEFAULT_FILTERS };
+    // Steps 1 and 2 show 2021 data specifically
     if (index === 1 || index === 2) state.year = "2021";
     draw("chart-canvas", state);
 }
 
+// Updates active step styling, aria attributes, and redraws the chart
 function syncScrollyStep(index, announce) {
     if (index < 0 || index >= scrollySteps.length) return;
 
@@ -823,6 +896,7 @@ function syncScrollyStep(index, announce) {
         else s.removeAttribute("aria-current");
     });
 
+    // Update the screen-reader live region when navigating by keyboard
     if (announce) {
         const status = document.getElementById("scrolly-status");
         const title = scrollySteps[index].querySelector("h2");
@@ -832,6 +906,7 @@ function syncScrollyStep(index, announce) {
     updateScrollyChart(index);
 }
 
+// Moves forward or backward by one step and scrolls to it
 function jumpScrollyStep(delta) {
     const index = activeScrollyStep + delta;
     if (index < 0 || index >= scrollySteps.length) return;
@@ -839,22 +914,26 @@ function jumpScrollyStep(delta) {
     scrollyNavigating = true;
     syncScrollyStep(index, true);
     scrollySteps[index].scrollIntoView({ behavior: "smooth", block: "center" });
+    // Briefly disable the scroll listener so it doesn't fight the programmatic scroll
     setTimeout(() => { scrollyNavigating = false; }, 700);
 }
 
+// Sets up keyboard navigation and the scroll listener for the scrollytelling section
 function initScrolly() {
     const section = document.querySelector(".scrolly-section");
     if (!section) return;
 
     scrollySteps = [...document.querySelectorAll(".step")];
 
+    // Arrow keys navigate between steps when focus is inside the scrolly section
     section.addEventListener("keydown", (e) => {
         const tag = document.activeElement?.tagName;
         if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || tag === "BUTTON") return;
         if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); jumpScrollyStep(1); }
-        if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); jumpScrollyStep(-1); }
+        if (e.key === "ArrowUp"   || e.key === "ArrowLeft")  { e.preventDefault(); jumpScrollyStep(-1); }
     });
 
+    // Detect which step is centred in the viewport as the user scrolls
     window.addEventListener("scroll", () => {
         if (scrollyNavigating) return;
         let active = 0;

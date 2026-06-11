@@ -22,205 +22,229 @@
 
     <main id="main-content">
         <section class="scrolly-section" aria-label="Interactive story" tabindex="0">
-        <div id="scrolly-status" class="sr-only" role="status" aria-live="polite"></div>
+            <div id="scrolly-status" class="sr-only" role="status" aria-live="polite"></div>
 
-        <div class="scrolly-container">
-        <div class="scroll-text" id="scrolly-steps">
-            <div class="step active" data-step="0" aria-current="step">
-                <div class="step-card">
-                    <span class="tag">01 // Injury Index over Time</span>
-                    <h2>Traffic Injury Trends over Time: First Nations vs Baseline</h2>
-                    <p>Indexing longitudinal trends from 2011 to 2021 exposes a critical equity divergence. While the
-                        broader national baseline tracks a stable trajectory, First Nations transport injuries have
-                        spiked, revealing a systemic policy failure.</p>
+            <div class="scrolly-container">
+                <div class="scroll-text" id="scrolly-steps">
+                    <div class="step active" data-step="0" aria-current="step">
+                        <div class="step-card">
+                            <span class="tag">01 // Injury Index over Time</span>
+                            <h2>Traffic Injury Trends over Time: First Nations vs Baseline</h2>
+                            <p>Indexing longitudinal trends from 2011 to 2021 exposes a critical equity divergence.
+                                While the
+                                broader national baseline tracks a stable trajectory, First Nations transport injuries
+                                have
+                                spiked, revealing a systemic policy failure.</p>
+                        </div>
+                    </div>
+                    <div class="step" data-step="1">
+                        <div class="step-card">
+                            <span class="tag">02 // Age Profiles</span>
+                            <h2>Traffic Hospitalisations by Age Group</h2>
+                            <p>Disaggregating transport trauma exposes an asymmetrical public health burden. The First
+                                Nations
+                                profile exhibits an alarming concentration centered squarely within the 17–25 youth
+                                cohort.</p>
+                        </div>
+                    </div>
+                    <div class="step" data-step="2">
+                        <div class="step-card">
+                            <span class="tag">03 // Vehicle Breakdown</span>
+                            <h2>Hospitalisations by Vehicle Type and Month</h2>
+                            <p>Evaluating hospitalisations through an Archimedean spiral heatmap exposes hidden seasonal
+                                loops
+                                across the year. We can isolate holiday surges and specific vehicle risk density.</p>
+                        </div>
+                    </div>
+                    <div class="step" data-step="3">
+                        <div class="step-card">
+                            <span class="tag">04 // Trauma Flow</span>
+                            <h2>Systemic Trauma Flow: Region → Vehicle → Severity</h2>
+                            <p>An alluvial Sankey traces every hospitalisation from where it happened, through which
+                                vehicle
+                                type was involved, to how severe the resulting stay was. Remote pedestrian injuries
+                                concentrate
+                                disproportionately in the severe tier — a signature of delayed emergency response.</p>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="step" data-step="1">
-                <div class="step-card">
-                    <span class="tag">02 // Age Profiles</span>
-                    <h2>Traffic Hospitalisations by Age Group</h2>
-                    <p>Disaggregating transport trauma exposes an asymmetrical public health burden. The First Nations
-                        profile exhibits an alarming concentration centered squarely within the 17–25 youth cohort.</p>
-                </div>
-            </div>
-            <div class="step" data-step="2">
-                <div class="step-card">
-                    <span class="tag">03 // Vehicle Breakdown</span>
-                    <h2>Hospitalisations by Vehicle Type and Month</h2>
-                    <p>Evaluating hospitalisations through an Archimedean spiral heatmap exposes hidden seasonal loops
-                        across the year. We can isolate holiday surges and specific vehicle risk density.</p>
-                </div>
-            </div>
-            <div class="step" data-step="3">
-                <div class="step-card">
-                    <span class="tag">04 // Trauma Flow</span>
-                    <h2>Systemic Trauma Flow: Region → Vehicle → Severity</h2>
-                    <p>An alluvial Sankey traces every hospitalisation from where it happened, through which vehicle
-                        type was involved, to how severe the resulting stay was. Remote pedestrian injuries concentrate
-                        disproportionately in the severe tier — a signature of delayed emergency response.</p>
-                </div>
-            </div>
-        </div>
 
-        <div class="scroll-chart-view">
-            <div class="dashboard-panel">
-                <p class="chart-hint">Chart updates as you scroll. Use arrow keys navigate between sections.</p>
-                <div class="canvas-mount" id="chart-canvas" role="figure" aria-label="Dynamic interactive chart matching the current scrollytelling step"></div>
+                <div class="scroll-chart-view">
+                    <div class="dashboard-panel">
+                        <p class="chart-hint">Chart updates as you scroll. Use arrow keys navigate between sections.</p>
+                        <div class="canvas-mount" id="chart-canvas" role="figure"
+                            aria-label="Dynamic interactive chart matching the current scrollytelling step"></div>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
         </section>
 
-    <section class="bottom-dashboard-section">
+        <section class="bottom-dashboard-section">
 
-        <div class="dashboard-body">
+            <div class="dashboard-body">
 
-            <aside class="filter-sidebar">
-                <div class="sidebar-header">
-                    <span class="tag">Filters</span>
-                    <h3>Control Panel</h3>
-                </div>
-
-                <fieldset class="filter-fieldset">
-                    <legend class="sr-only">Filter hospitalisation data</legend>
-
-                    <div class="ctrl-unit">
-                        <label for="global-gender">Gender</label>
-                        <select id="global-gender">
-                            <option value="All">All Genders</option>
-                            <option value="Male">Males Only</option>
-                            <option value="Female">Females Only</option>
-                        </select>
+                <aside class="filter-sidebar">
+                    <div class="sidebar-header">
+                        <span class="tag">Filters</span>
+                        <h3>Control Panel</h3>
                     </div>
-                    <div class="ctrl-unit">
-                        <label for="global-year">Year</label>
-                        <select id="global-year">
-                            <option value="All">All Years</option>
-                        </select>
-                    </div>
-                    <div class="ctrl-unit">
-                        <label for="global-region">Region</label>
-                        <select id="global-region">
-                            <option value="All">All Regions</option>
-                            <option value="Major Cities">Major Cities</option>
-                            <option value="Regional">Regional</option>
-                            <option value="Remote">Remote</option>
-                        </select>
-                    </div>
-                    <div class="ctrl-unit">
-                        <label for="global-age">Age Group</label>
-                        <select id="global-age">
-                            <option value="All">All Ages</option>
-                            <option value="0-7">0 to 7 Years</option>
-                            <option value="8-16">8 to 16 Years</option>
-                            <option value="17-25">17 to 25 Years</option>
-                            <option value="26-39">26 to 39 Years</option>
-                            <option value="40-64">40 to 64 Years</option>
-                            <option value="65+">65+ Years</option>
-                        </select>
-                    </div>
-                    <div class="ctrl-unit">
-                        <label for="global-roaduser">Road User</label>
-                        <select id="global-roaduser">
-                            <option value="All">All Vehicles</option>
-                            <option value="Car">Car/Van</option>
-                            <option value="Motorcycle">Motorcycle</option>
-                            <option value="Pedestrian">Pedestrian</option>
-                            <option value="Bicycle">Bicycle</option>
-                            <option value="Truck">Heavy Vehicle/Bus</option>
-                        </select>
-                    </div>
-                </fieldset>
 
-                <div class="sidebar-divider"></div>
+                    <fieldset class="filter-fieldset">
+                        <legend class="sr-only">Filter hospitalisation data</legend>
 
-                <div class="sidebar-buttons">
-                    <button class="export-btn" id="export-csv-btn">
-                        <svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="7 10 12 15 17 10" />
-                            <line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
-                        Export Filtered CSV
-                    </button>
-                    <button class="reset-btn" id="reset-filters-btn">
-                        <svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                            <path d="M3 3v5h5" />
-                        </svg>
-                        Reset Filters
-                    </button>
-                </div>
-                <p class="export-hint">Downloads the currently filtered hospitalisation rows.</p>
-            </aside>
-
-            <div class="dashboard-main">
-                <div id="app-message" class="app-message" role="alert" aria-live="assertive" hidden></div>
-                <div id="dashboard-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
-
-                <div class="dashboard-editorial-header">
-                    <h2>Interactive Data Exploration Dashboard</h2>
-                    <p>Cross-examine database rows across multiple visual models simultaneously using unified global
-                        parameters.</p>
-                    <p class="chart-hint">Tab into any chart to explore the data. Touch or click for details.</p>
-                </div>
-
-                <div class="kpi-summary-strip" aria-label="Key performance indicators">
-                    <div class="kpi-card text-blue">
-                        <div class="kpi-value" id="kpi-total-cases" aria-labelledby="kpi-total-label">0</div>
-                        <div class="kpi-label" id="kpi-total-label">Total Selected Hospitalisations</div>
-                    </div>
-                    <div class="kpi-card text-red">
-                        <div class="kpi-value" id="kpi-fn-cases" aria-labelledby="kpi-fn-label">0</div>
-                        <div class="kpi-label" id="kpi-fn-label">First Nations Cohort Volume</div>
-                    </div>
-                    <div class="kpi-card text-orange">
-                        <div class="kpi-value" id="kpi-severity-index" aria-labelledby="kpi-severity-label">0.0 Days</div>
-                        <div class="kpi-label" id="kpi-severity-label">Mean Hospital Stay (Trauma Intensity)</div>
-                    </div>
-                </div>
-
-                <div class="analytics-dashboard-grid">
-
-                    <div class="dash-card span-full">
-                        <div class="panel-header">
-                            <h3>01 // Indexed Growth Trajectory (2011 = 100%)</h3>
-                            <div class="panel-sub">How injury rates changed over time — red solid: First Nations; blue dashed: Non-Indigenous; orange dashed: National (2011 = 100%).</div>
+                        <div class="ctrl-unit">
+                            <label for="global-gender">Gender</label>
+                            <select id="global-gender">
+                                <option value="All">All Genders</option>
+                                <option value="Male">Males Only</option>
+                                <option value="Female">Females Only</option>
+                            </select>
                         </div>
-                        <div class="dash-card-canvas" id="dash-canvas-line" role="figure" aria-label="Line chart comparing percentage growth of First Nations, Non-Indigenous, and National transport injuries over time"></div>
-                    </div>
-
-                    <div class="dash-card">
-                        <div class="panel-header">
-                            <h3>02 // Hospitalisations by Age Group</h3>
-                            <div class="panel-sub">Hospitalisations by age — striped bars are First Nations, solid bars are Non-Indigenous.</div>
+                        <div class="ctrl-unit">
+                            <label for="global-year">Year</label>
+                            <select id="global-year">
+                                <option value="All">All Years</option>
+                            </select>
                         </div>
-                        <div class="dash-card-canvas" id="dash-canvas-pyramid" role="figure" aria-label="Pyramid chart showing hospitalisations across age groups, comparing First Nations and Non-Indigenous"></div>
-                    </div>
-
-                    <div class="dash-card">
-                        <div class="panel-header">
-                            <h3>03 // Monthly Hospitalisations by Vehicle Type</h3>
-                            <div class="panel-sub">Monthly hospitalisations by vehicle type — brighter segments mean more cases.</div>
+                        <div class="ctrl-unit">
+                            <label for="global-region">Region</label>
+                            <select id="global-region">
+                                <option value="All">All Regions</option>
+                                <option value="Major Cities">Major Cities</option>
+                                <option value="Regional">Regional</option>
+                                <option value="Remote">Remote</option>
+                            </select>
                         </div>
-                        <div class="dash-card-canvas" id="dash-canvas-spiral" role="figure" aria-label="Spiral heatmap showing monthly hospitalisations grouped by vehicle type"></div>
-                    </div>
-
-                    <div class="dash-card span-full">
-                        <div class="panel-header">
-                            <h3>04 // Systemic Trauma Flow</h3>
-                            <div class="panel-sub">How injuries flow from region to vehicle type to hospital stay length. Select or hover any band or node for detail.</div>
+                        <div class="ctrl-unit">
+                            <label for="global-age">Age Group</label>
+                            <select id="global-age">
+                                <option value="All">All Ages</option>
+                                <option value="0-7">0 to 7 Years</option>
+                                <option value="8-16">8 to 16 Years</option>
+                                <option value="17-25">17 to 25 Years</option>
+                                <option value="26-39">26 to 39 Years</option>
+                                <option value="40-64">40 to 64 Years</option>
+                                <option value="65+">65+ Years</option>
+                            </select>
                         </div>
-                        <div class="dash-card-canvas" id="dash-canvas-bar" role="figure" aria-label="Sankey diagram tracing trauma flow from geographic region to vehicle type to severity of hospital stay"></div>
+                        <div class="ctrl-unit">
+                            <label for="global-roaduser">Road User</label>
+                            <select id="global-roaduser">
+                                <option value="All">All Vehicles</option>
+                                <option value="Car">Car/Van</option>
+                                <option value="Motorcycle">Motorcycle</option>
+                                <option value="Pedestrian">Pedestrian</option>
+                                <option value="Bicycle">Bicycle</option>
+                                <option value="Truck">Heavy Vehicle/Bus</option>
+                            </select>
+                        </div>
+                    </fieldset>
+
+                    <div class="sidebar-divider"></div>
+
+                    <div class="sidebar-buttons">
+                        <button class="export-btn" id="export-csv-btn">
+                            <svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="14"
+                                height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="7 10 12 15 17 10" />
+                                <line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                            Export Filtered CSV
+                        </button>
+                        <button class="reset-btn" id="reset-filters-btn">
+                            <svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" width="14"
+                                height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                <path d="M3 3v5h5" />
+                            </svg>
+                            Reset Filters
+                        </button>
+                    </div>
+                    <p class="export-hint">Downloads the currently filtered hospitalisation rows.</p>
+                </aside>
+
+                <div class="dashboard-main">
+                    <div id="app-message" class="app-message" role="alert" aria-live="assertive" hidden></div>
+                    <div id="dashboard-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true">
                     </div>
 
+                    <div class="dashboard-editorial-header">
+                        <h2>Interactive Data Exploration Dashboard</h2>
+                        <p>Cross-examine database rows across multiple visual models simultaneously using unified global
+                            parameters.</p>
+                        <p class="chart-hint">Tab into any chart to explore the data. Touch or click for details.</p>
+                    </div>
+
+                    <div class="kpi-summary-strip" aria-label="Key performance indicators">
+                        <div class="kpi-card text-blue">
+                            <div class="kpi-value" id="kpi-total-cases" aria-labelledby="kpi-total-label">0</div>
+                            <div class="kpi-label" id="kpi-total-label">Total Selected Hospitalisations</div>
+                        </div>
+                        <div class="kpi-card text-red">
+                            <div class="kpi-value" id="kpi-fn-cases" aria-labelledby="kpi-fn-label">0</div>
+                            <div class="kpi-label" id="kpi-fn-label">First Nations Cohort Volume</div>
+                        </div>
+                        <div class="kpi-card text-orange">
+                            <div class="kpi-value" id="kpi-severity-index" aria-labelledby="kpi-severity-label">0.0 Days
+                            </div>
+                            <div class="kpi-label" id="kpi-severity-label">Mean Hospital Stay (Trauma Intensity)</div>
+                        </div>
+                    </div>
+
+                    <div class="analytics-dashboard-grid">
+
+                        <div class="dash-card span-full">
+                            <div class="panel-header">
+                                <h3>01 // Indexed Growth Trajectory (2011 = 100%)</h3>
+                                <div class="panel-sub">How injury rates changed over time — red solid: First Nations;
+                                    blue dashed: Non-Indigenous; orange dashed: National (2011 = 100%).</div>
+                            </div>
+                            <div class="dash-card-canvas" id="dash-canvas-line" role="figure"
+                                aria-label="Line chart comparing percentage growth of First Nations, Non-Indigenous, and National transport injuries over time">
+                            </div>
+                        </div>
+
+                        <div class="dash-card">
+                            <div class="panel-header">
+                                <h3>02 // Hospitalisations by Age Group</h3>
+                                <div class="panel-sub">Hospitalisations by age — striped bars are First Nations, solid
+                                    bars are Non-Indigenous.</div>
+                            </div>
+                            <div class="dash-card-canvas" id="dash-canvas-pyramid" role="figure"
+                                aria-label="Pyramid chart showing hospitalisations across age groups, comparing First Nations and Non-Indigenous">
+                            </div>
+                        </div>
+
+                        <div class="dash-card">
+                            <div class="panel-header">
+                                <h3>03 // Monthly Hospitalisations by Vehicle Type</h3>
+                                <div class="panel-sub">Monthly hospitalisations by vehicle type — brighter segments mean
+                                    more cases.</div>
+                            </div>
+                            <div class="dash-card-canvas" id="dash-canvas-spiral" role="figure"
+                                aria-label="Spiral heatmap showing monthly hospitalisations grouped by vehicle type">
+                            </div>
+                        </div>
+
+                        <div class="dash-card span-full">
+                            <div class="panel-header">
+                                <h3>04 // Systemic Trauma Flow</h3>
+                                <div class="panel-sub">How injuries flow from region to vehicle type to hospital stay
+                                    length. Select or hover any band or node for detail.</div>
+                            </div>
+                            <div class="dash-card-canvas" id="dash-canvas-bar" role="figure"
+                                aria-label="Sankey diagram tracing trauma flow from geographic region to vehicle type to severity of hospital stay">
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
+
             </div>
-
-        </div>
-    </section>
+        </section>
     </main>
 
     <footer>
