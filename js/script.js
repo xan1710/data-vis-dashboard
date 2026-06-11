@@ -161,6 +161,8 @@ Promise.all([
         days: cleanNum(d["Bed days"])
     }));
 
+    populateYearFilter();
+
     hideAppMessage();
     d3.selectAll(".chart-loading").remove();
     initScrolly();
@@ -192,6 +194,15 @@ function matchAge(dbAge, filterAge) {
     if (filterAge === "26-64" && (a.includes("25-44") || a.includes("45-64") || a.includes("26-39") || a.includes("40-64"))) return true;
     if (filterAge === "65+" && (a.includes("65+") || a.startsWith("65-") || a === "75+" || a.startsWith("75-"))) return true;
     return false;
+}
+
+function populateYearFilter() {
+    const years = [...new Set([...rawHosp, ...rawFN].map(d => d.year))].sort((a, b) => b - a);
+    const select = d3.select("#global-year");
+    const current = select.property("value");
+    select.selectAll("option:not([value='All'])").remove();
+    years.forEach(y => select.append("option").attr("value", y).text(y));
+    if (current !== "All" && years.includes(+current)) select.property("value", current);
 }
 
 function filterHospData(fState) {
