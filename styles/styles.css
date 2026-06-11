@@ -476,6 +476,11 @@ body {
     line-height: 1.5;
 }
 
+.panel-note {
+    margin-top: -8px;
+    font-style: italic;
+}
+
 .dash-card-canvas {
     width: 100%;
     height: 350px;

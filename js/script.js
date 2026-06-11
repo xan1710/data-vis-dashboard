@@ -188,11 +188,9 @@ function mapVehicle(ru) {
 
 function matchAge(dbAge, filterAge) {
     if (filterAge === "All") return true;
-    const a = dbAge.toLowerCase();
-    if (filterAge === "0-16" && (a.includes("0-4") || a.includes("5-14") || a.includes("0-7") || a.includes("8-16"))) return true;
-    if (filterAge === "17-25" && (a.includes("15-24") || a.includes("17-25"))) return true;
-    if (filterAge === "26-64" && (a.includes("25-44") || a.includes("45-64") || a.includes("26-39") || a.includes("40-64"))) return true;
-    if (filterAge === "65+" && (a.includes("65+") || a.startsWith("65-") || a === "75+" || a.startsWith("75-"))) return true;
+    if (!COHORTS.includes(filterAge)) return false;
+    if (dbAge === filterAge) return true;
+    if (filterAge === "65+" && (dbAge === "65-74" || dbAge === "75+")) return true;
     return false;
 }
 
@@ -214,6 +212,28 @@ function filterHospData(fState) {
         if (!matchAge(d.age, fState.age)) return false;
         return true;
     });
+}
+
+function hospToCohort(age) {
+    if (age === "65-74" || age === "75+") return "65+";
+    return COHORTS.includes(age) ? age : null;
+}
+
+function sumHospByCohort(rows, cohort) {
+    return d3.sum(rows.filter(d => hospToCohort(d.age) === cohort), d => d.cases);
+}
+
+// Scale FN age cohorts when gender/region/vehicle filters are active (FN CSV has no those cross-tabs).
+function pyramidCohortScale(fState) {
+    const yr = fState.year !== "All" ? +fState.year : 2021;
+    if (fState.gender === "All" && fState.region === "All" && fState.roadUser === "All") return null;
+
+    const base = rawHosp.filter(d => d.year === yr);
+    const filt = filterHospData({ ...fState, year: String(yr), age: "All" });
+    return Object.fromEntries(COHORTS.map(c => {
+        const b = sumHospByCohort(base, c);
+        return [c, b > 0 ? sumHospByCohort(filt, c) / b : 0];
+    }));
 }
 
 // Dashboard
@@ -406,15 +426,18 @@ function drawPyramidChart(containerId, fState, animate) {
     const { parent, updating } = prepareChart(containerId);
     let svg = parent.select("svg");
 
-    let subset = rawFN.filter(d => d.catType === "Age group");
-    if (fState.year !== "All") subset = subset.filter(d => d.year === +fState.year);
-    else subset = subset.filter(d => d.year === 2021);
+    const yr = fState.year !== "All" ? +fState.year : 2021;
+    const subset = rawFN.filter(d => d.catType === "Age group" && d.year === yr);
+    const scale = pyramidCohortScale(fState);
 
-    const data = COHORTS.map(c => ({
-        group: c,
-        fn: d3.sum(subset.filter(d => d.catValue === c && d.status === "First Nations people"), x => x.cases),
-        non: d3.sum(subset.filter(d => d.catValue === c && d.status === "Non-Indigenous"), x => x.cases)
-    }));
+    const data = COHORTS.map(c => {
+        const s = scale ? scale[c] : 1;
+        return {
+            group: c,
+            fn: Math.round(d3.sum(subset.filter(d => d.catValue === c && d.status === "First Nations people"), x => x.cases) * s),
+            non: Math.round(d3.sum(subset.filter(d => d.catValue === c && d.status === "Non-Indigenous"), x => x.cases) * s)
+        };
+    });
 
     const y = d3.scaleBand().domain(COHORTS).range([height - margin.bottom, margin.top]).padding(0.2);
     const xMaxFn = d3.max(data, d => d.fn) || 1;
@@ -445,6 +468,9 @@ function drawPyramidChart(containerId, fState, animate) {
 
     const trans = animate && updating;
     const mid = width / 2;
+    const ageFocus = fState.age !== "All" ? fState.age : null;
+    const cohortOpacity = d => !ageFocus || d.group === ageFocus ? 1 : 0.2;
+
     applyTransition(svg.select(".axis-left"), trans).call(d3.axisBottom(xL).ticks(4).tickFormat(d3.format("~s")));
     applyTransition(svg.select(".axis-right"), trans).call(d3.axisBottom(xR).ticks(4).tickFormat(d3.format("~s")));
 
@@ -457,14 +483,18 @@ function drawPyramidChart(containerId, fState, animate) {
         const tip = d => `<div class="tooltip-title">${side.title} (Age ${d.group})</div>Total: <b>${d[side.key].toLocaleString()}</b> cases`;
         bindHoverTip(bars.attr("tabindex", "0").attr("role", "button")
             .attr("aria-label", d => `${side.title}, age ${d.group}: ${d[side.key].toLocaleString()} hospitalisations`), tip);
-        applyTransition(bars, trans).attr("x", side.x).attr("y", d => y(d.group)).attr("width", side.w).attr("height", y.bandwidth());
+        applyTransition(bars, trans)
+            .attr("x", side.x).attr("y", d => y(d.group)).attr("width", side.w).attr("height", y.bandwidth())
+            .attr("opacity", cohortOpacity);
     });
 
     const labels = updateDataJoin(svg, ".lbl", data, d => d.group, enter =>
         enter.append("text").attr("class", "chart-label lbl").attr("x", mid)
             .attr("text-anchor", "middle").style("fill", "var(--text-dark)").style("font-weight", "bold").attr("aria-hidden", "true"));
     labels.text(d => d.group);
-    applyTransition(labels, trans).attr("y", d => y(d.group) + y.bandwidth() / 2 + 4);
+    applyTransition(labels, trans)
+        .attr("y", d => y(d.group) + y.bandwidth() / 2 + 4)
+        .attr("opacity", cohortOpacity);
 }
 
 // Spiral heatmap
