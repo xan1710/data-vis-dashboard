@@ -9,12 +9,10 @@ const tooltip = d3.select("body").append("div")
     .attr("role", "tooltip")
     .attr("aria-hidden", "true");
 
-const TOOLTIP_ID = "chart-tooltip";
-
 function showTooltip(html, x, y, el) {
     tooltip.attr("aria-hidden", "false").style("opacity", 1).html(html)
         .style("left", x + "px").style("top", y + "px");
-    if (el) el.setAttribute("aria-describedby", TOOLTIP_ID);
+    if (el) el.setAttribute("aria-describedby", "chart-tooltip");
 }
 
 function hideTooltip(el) {
@@ -63,16 +61,37 @@ function applyTransition(selection, animate) {
     return animate ? chartTransition(selection) : selection;
 }
 
-function tweenPathY(line, prevData, nextData, yKey) {
-    return function () {
-        return function (t) {
-            const blended = prevData.map((d, i) => ({
-                year: d.year,
-                [yKey]: d[yKey] + t * (nextData[i][yKey] - d[yKey])
-            }));
-            return line(blended);
-        };
-    };
+function prepareChart(containerId) {
+    const isDashboard = containerId.startsWith("dash-canvas-");
+    const parent = d3.select("#" + containerId);
+    const svg = parent.select("svg");
+    const updating = isDashboard && !svg.empty();
+    if (!isDashboard || !updating) parent.html("");
+    return { parent, svg, updating };
+}
+
+function bindHoverTip(selection, tipFn) {
+    return selection
+        .on("mouseover focus", function (e, d) { showChartTip(this, tipFn(d), e); })
+        .on("mousemove", (e, d) => showTooltip(tipFn(d), e.pageX + 15, e.pageY - 15))
+        .on("mouseout blur", function () { hideTooltip(this); });
+}
+
+function bindOpacityTip(selection, tipHtml, hoverOpacity, restOpacity) {
+    return selection
+        .on("mouseover focus", function (e) { d3.select(this).attr("opacity", hoverOpacity); showChartTip(this, tipHtml, e); })
+        .on("mousemove", e => showTooltip(tipHtml, e.pageX + 15, e.pageY - 15))
+        .on("mouseout blur", function () { d3.select(this).attr("opacity", restOpacity); hideTooltip(this); });
+}
+
+function tweenPathY(line, prev, next, key) {
+    return () => t => line(prev.map((d, i) => ({ year: d.year, [key]: d[key] + t * (next[i][key] - d[key]) })));
+}
+
+function updateDataJoin(svg, cls, data, keyFn, enterFn) {
+    const join = svg.selectAll(cls).data(data, keyFn);
+    join.exit().remove();
+    return enterFn(join.enter()).merge(join);
 }
 
 function tweenKpiText(selector, endValue, format) {
@@ -87,20 +106,28 @@ function tweenKpiText(selector, endValue, format) {
     });
 }
 
+// Shared constants
+const DEFAULT_FILTERS = { gender: "All", year: "All", region: "All", age: "All", roadUser: "All" };
+const VEHICLES = ["Car", "Motorcycle", "Bicycle", "Pedestrian", "Truck"];
+const COHORTS = ["0-7", "8-16", "17-25", "26-39", "40-64", "65+"];
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const LINE_YEARS = d3.range(2011, 2022);
+const FILTER_SELECTS = ["#global-gender", "#global-year", "#global-region", "#global-age", "#global-roaduser"];
+const CHART_DRAWERS = [drawLineChart, drawPyramidChart, drawSpiralChart, drawSankeyChart];
+const DASH_IDS = ["dash-canvas-line", "dash-canvas-pyramid", "dash-canvas-spiral", "dash-canvas-bar"];
+const LINE_SERIES = [
+    { cls: "line-fn", key: "fnIdx", color: "var(--accent-red)", dash: null, width: 3, label: "First Nations", labelOff: 0 },
+    { cls: "line-non", key: "nonIdx", color: "var(--chart-blue)", dash: "4,4", width: 2, label: "Non-Indigenous", labelOff: 0 },
+    { cls: "line-nat", key: "natIdx", color: "var(--chart-orange)", dash: "4,4", width: 2, label: "National", labelOff: 15 }
+];
+
 // Global state
 let rawFN = [];
 let rawHosp = [];
-
-let dashFilters = {
-    gender: "All",
-    year: "All",
-    region: "All",
-    age: "All",
-    roadUser: "All"
-};
-
+let dashFilters = { ...DEFAULT_FILTERS };
 let activeScrollyStep = 0;
 let scrollyNavigating = false;
+let scrollySteps = [];
 
 d3.selectAll(".canvas-mount, .dash-card-canvas").each(function () {
     d3.select(this).append("div").attr("class", "chart-loading").attr("role", "status").text("Loading hospitalisation data…");
@@ -196,20 +223,13 @@ function renderDashboard() {
     const fnCases = d3.sum(fnBase.filter(d => d.status === "First Nations people"), d => d.cases);
 
     const animate = dashboardChartsReady && !prefersReducedMotion;
-    if (animate) {
-        tweenKpiText("#kpi-total-cases", tCases, v => Math.round(v).toLocaleString());
-        tweenKpiText("#kpi-fn-cases", fnCases, v => Math.round(v).toLocaleString());
-        tweenKpiText("#kpi-severity-index", mStay, v => v.toFixed(2) + " d");
-    } else {
-        d3.select("#kpi-total-cases").text(tCases.toLocaleString());
-        d3.select("#kpi-fn-cases").text(fnCases.toLocaleString());
-        d3.select("#kpi-severity-index").text(mStay.toFixed(2) + " d");
-    }
+    [
+        ["#kpi-total-cases", tCases, v => Math.round(v).toLocaleString()],
+        ["#kpi-fn-cases", fnCases, v => Math.round(v).toLocaleString()],
+        ["#kpi-severity-index", mStay, v => v.toFixed(2) + " d"]
+    ].forEach(([sel, val, fmt]) => animate ? tweenKpiText(sel, val, fmt) : d3.select(sel).text(fmt(val)));
 
-    drawLineChart("dash-canvas-line", dashFilters, animate);
-    drawPyramidChart("dash-canvas-pyramid", dashFilters, animate);
-    drawSpiralChart("dash-canvas-spiral", dashFilters, animate);
-    drawSankeyChart("dash-canvas-bar", dashFilters, animate);
+    DASH_IDS.forEach((id, i) => CHART_DRAWERS[i](id, dashFilters, animate));
 
     dashboardChartsReady = true;
     announceDashboardStatus(tCases, fnCases, mStay);
@@ -234,28 +254,15 @@ document.getElementById("export-csv-btn").addEventListener("click", () => {
 
     hideAppMessage();
 
-    const headers = ["Year", "Month", "Region", "Sex", "Age Group", "Road User", "Hospitalisations", "Bed Days"];
-    const rows = subset.map(d => [
-        d.year,
-        d.month,
-        d.area,
-        d.sex,
-        d.age,
-        d.roadUser,
-        d.cases,
-        d.days
-    ]);
+    const csvContent = d3.csvFormat(subset.map(d => ({
+        Year: d.year, Month: d.month, Region: d.area, Sex: d.sex,
+        "Age Group": d.age, "Road User": d.roadUser,
+        Hospitalisations: d.cases, "Bed Days": d.days
+    })));
 
-    const csvContent = [headers, ...rows]
-        .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
-        .join("\n");
-
-    const parts = [];
-    if (dashFilters.year !== "All") parts.push(dashFilters.year);
-    if (dashFilters.region !== "All") parts.push(dashFilters.region.replace(/\s+/g, "-"));
-    if (dashFilters.gender !== "All") parts.push(dashFilters.gender);
-    if (dashFilters.age !== "All") parts.push(`age-${dashFilters.age}`);
-    if (dashFilters.roadUser !== "All") parts.push(dashFilters.roadUser);
+    const parts = ["year", "region", "gender", "age", "roadUser"]
+        .filter(k => dashFilters[k] !== "All")
+        .map(k => k === "age" ? `age-${dashFilters[k]}` : k === "region" ? dashFilters[k].replace(/\s+/g, "-") : dashFilters[k]);
     const filename = `road-safety-export${parts.length ? "-" + parts.join("-") : ""}.csv`;
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -269,43 +276,21 @@ document.getElementById("export-csv-btn").addEventListener("click", () => {
 });
 
 document.getElementById("reset-filters-btn").addEventListener("click", () => {
-    dashFilters = {
-        gender: "All",
-        year: "All",
-        region: "All",
-        age: "All",
-        roadUser: "All"
-    };
-
-    d3.select("#global-gender").property("value", "All");
-    d3.select("#global-year").property("value", "All");
-    d3.select("#global-region").property("value", "All");
-    d3.select("#global-age").property("value", "All");
-    d3.select("#global-roaduser").property("value", "All");
-
+    dashFilters = { ...DEFAULT_FILTERS };
+    FILTER_SELECTS.forEach(sel => d3.select(sel).property("value", "All"));
     hideAppMessage();
     renderDashboard();
 });
 
 // Line chart
 function drawLineChart(containerId, fState, animate) {
-    const isDashboard = containerId.startsWith("dash-canvas-");
-    const parent = d3.select("#" + containerId);
+    const { parent, updating } = prepareChart(containerId);
     let svg = parent.select("svg");
-    const updating = isDashboard && !svg.empty();
 
-    if (!isDashboard || !updating) parent.html("");
+    let subset = rawFN.filter(d => d.catType === "Age group");
+    if (fState.age !== "All") subset = subset.filter(d => matchAge(d.catValue, fState.age));
 
-    let subset;
-    if (fState.age === "All") {
-        subset = rawFN.filter(d => d.catType === "Age group");
-    } else {
-        subset = rawFN.filter(d => d.catType === "Age group" && matchAge(d.catValue, fState.age));
-    }
-
-    const years = [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021];
-
-    let data = years.map(yr => {
+    let data = LINE_YEARS.map(yr => {
         const fn = d3.sum(subset.filter(d => d.year === yr && d.status === "First Nations people"), d => d.cases);
         const non = d3.sum(subset.filter(d => d.year === yr && d.status === "Non-Indigenous"), d => d.cases);
         return { year: yr, fn: fn, non: non, nat: fn + non };
@@ -337,49 +322,30 @@ function drawLineChart(containerId, fState, animate) {
         svg.append("g").attr("transform", `translate(${margin.left},0)`).attr("class", "axis axis-y");
         svg.append("g").attr("class", "grid").attr("transform", `translate(${margin.left}, 0)`);
         svg.selectAll(".axis, .grid").attr("aria-hidden", "true");
-
-        svg.append("path").attr("class", "line-nat").attr("fill", "none").attr("stroke", "var(--chart-orange)").attr("stroke-dasharray", "4,4").attr("stroke-width", 2).attr("aria-hidden", "true");
-        svg.append("path").attr("class", "line-non").attr("fill", "none").attr("stroke", "var(--chart-blue)").attr("stroke-dasharray", "4,4").attr("stroke-width", 2).attr("aria-hidden", "true");
-        svg.append("path").attr("class", "line-fn").attr("fill", "none").attr("stroke", "var(--accent-red)").attr("stroke-width", 3).attr("aria-hidden", "true");
-
-        svg.append("text").attr("class", "chart-label line-label line-label-fn").attr("x", width - margin.right + 10).style("fill", "var(--accent-red)").style("font-weight", "bold").text("First Nations").attr("aria-hidden", "true");
-        svg.append("text").attr("class", "chart-label line-label line-label-non").attr("x", width - margin.right + 10).style("fill", "var(--chart-blue)").style("font-weight", "bold").text("Non-Indigenous").attr("aria-hidden", "true");
-        svg.append("text").attr("class", "chart-label line-label line-label-nat").attr("x", width - margin.right + 10).style("fill", "var(--chart-orange)").style("font-weight", "bold").text("National").attr("aria-hidden", "true");
+        LINE_SERIES.forEach(s => {
+            const path = svg.append("path").attr("class", s.cls).attr("fill", "none")
+                .attr("stroke", s.color).attr("stroke-width", s.width).attr("aria-hidden", "true");
+            if (s.dash) path.attr("stroke-dasharray", s.dash);
+            svg.append("text").attr("class", `chart-label line-label line-label-${s.cls.slice(5)}`)
+                .attr("x", width - margin.right + 10).style("fill", s.color).style("font-weight", "bold")
+                .text(s.label).attr("aria-hidden", "true");
+        });
     }
 
-    const lNat = d3.line().x(d => x(d.year)).y(d => y(d.natIdx)).curve(d3.curveMonotoneX);
-    const lNon = d3.line().x(d => x(d.year)).y(d => y(d.nonIdx)).curve(d3.curveMonotoneX);
-    const lFn = d3.line().x(d => x(d.year)).y(d => y(d.fnIdx)).curve(d3.curveMonotoneX);
+    const trans = animate && updating;
+    applyTransition(svg.select(".axis-x"), trans).call(d3.axisBottom(x));
+    applyTransition(svg.select(".axis-y"), trans).call(d3.axisLeft(y).ticks(6).tickFormat(d => d + "%"));
+    applyTransition(svg.select(".grid"), trans).call(d3.axisLeft(y).ticks(6).tickSize(-width + margin.left + margin.right).tickFormat(""));
 
-    applyTransition(svg.select(".axis-x"), animate && updating).call(d3.axisBottom(x));
-    applyTransition(svg.select(".axis-y"), animate && updating).call(d3.axisLeft(y).ticks(6).tickFormat(d => d + "%"));
-    applyTransition(svg.select(".grid"), animate && updating).call(d3.axisLeft(y).ticks(6).tickSize(-width + margin.left + margin.right).tickFormat(""));
-
-    const lineSeries = [
-        { cls: "line-nat", line: lNat, key: "natIdx" },
-        { cls: "line-non", line: lNon, key: "nonIdx" },
-        { cls: "line-fn", line: lFn, key: "fnIdx" }
-    ];
-
-    lineSeries.forEach(s => {
+    const last = data[data.length - 1];
+    LINE_SERIES.forEach(s => {
+        const line = d3.line().x(d => x(d.year)).y(d => y(d[s.key])).curve(d3.curveMonotoneX);
         const path = svg.select("." + s.cls);
         const prevData = path.datum() || data;
         path.datum(data);
-        if (animate && updating) {
-            path.transition().duration(CHART_TRANSITION_MS).ease(d3.easeCubicInOut)
-                .attrTween("d", tweenPathY(s.line, prevData, data, s.key));
-        } else {
-            path.attr("d", s.line);
-        }
-    });
-
-    const labelPos = [
-        { cls: "line-label-fn", y: y(data[10].fnIdx) },
-        { cls: "line-label-non", y: y(data[10].nonIdx) },
-        { cls: "line-label-nat", y: y(data[10].natIdx) + 15 }
-    ];
-    labelPos.forEach(l => {
-        applyTransition(svg.select("." + l.cls), animate && updating).attr("y", l.y);
+        if (trans) chartTransition(path).attrTween("d", tweenPathY(line, prevData, data, s.key));
+        else path.attr("d", line);
+        applyTransition(svg.select(`.line-label-${s.cls.slice(5)}`), trans).attr("y", y(last[s.key]) + s.labelOff);
     });
 
     function lineTip(d) {
@@ -403,10 +369,12 @@ function drawLineChart(containerId, fState, animate) {
             `Non-Indigenous ${d.nonIdx.toFixed(1)}% (${d.nonRaw.toLocaleString()} cases), ` +
             `National ${d.natIdx.toFixed(1)}% (${d.natRaw.toLocaleString()} cases)`)
         .on("mouseover focus", function (e, d) {
-            svg.append("line").attr("class", "hover-line").attr("aria-hidden", "true").attr("x1", x(d.year)).attr("x2", x(d.year)).attr("y1", margin.top).attr("y2", height - margin.bottom).attr("stroke", "#94a3b8").attr("stroke-dasharray", "3,3");
-            svg.append("circle").attr("class", "hover-dot").attr("aria-hidden", "true").attr("cx", x(d.year)).attr("cy", y(d.fnIdx)).attr("r", 6).attr("fill", "var(--accent-red)").attr("stroke", "#fff").attr("stroke-width", 2);
-            svg.append("circle").attr("class", "hover-dot").attr("aria-hidden", "true").attr("cx", x(d.year)).attr("cy", y(d.nonIdx)).attr("r", 6).attr("fill", "var(--chart-blue)").attr("stroke", "#fff").attr("stroke-width", 2);
-            svg.append("circle").attr("class", "hover-dot").attr("aria-hidden", "true").attr("cx", x(d.year)).attr("cy", y(d.natIdx)).attr("r", 6).attr("fill", "var(--chart-orange)").attr("stroke", "#fff").attr("stroke-width", 2);
+            const cx = x(d.year);
+            svg.append("line").attr("class", "hover-line").attr("aria-hidden", "true")
+                .attr("x1", cx).attr("x2", cx).attr("y1", margin.top).attr("y2", height - margin.bottom)
+                .attr("stroke", "#94a3b8").attr("stroke-dasharray", "3,3");
+            LINE_SERIES.forEach(s => svg.append("circle").attr("class", "hover-dot").attr("aria-hidden", "true")
+                .attr("cx", cx).attr("cy", y(d[s.key])).attr("r", 6).attr("fill", s.color).attr("stroke", "#fff").attr("stroke-width", 2));
             showChartTip(this, lineTip(d), e);
         })
         .on("mousemove", (e, d) => showTooltip(lineTip(d), e.pageX + 15, e.pageY - 15))
@@ -424,25 +392,20 @@ function drawLineChart(containerId, fState, animate) {
 
 // Pyramid chart
 function drawPyramidChart(containerId, fState, animate) {
-    const isDashboard = containerId.startsWith("dash-canvas-");
-    const parent = d3.select("#" + containerId);
+    const { parent, updating } = prepareChart(containerId);
     let svg = parent.select("svg");
-    const updating = isDashboard && !svg.empty();
 
-    if (!isDashboard || !updating) parent.html("");
-
-    const cohorts = ["0-7", "8-16", "17-25", "26-39", "40-64", "65+"];
     let subset = rawFN.filter(d => d.catType === "Age group");
     if (fState.year !== "All") subset = subset.filter(d => d.year === +fState.year);
     else subset = subset.filter(d => d.year === 2021);
 
-    const data = cohorts.map(c => ({
+    const data = COHORTS.map(c => ({
         group: c,
         fn: d3.sum(subset.filter(d => d.catValue === c && d.status === "First Nations people"), x => x.cases),
         non: d3.sum(subset.filter(d => d.catValue === c && d.status === "Non-Indigenous"), x => x.cases)
     }));
 
-    const y = d3.scaleBand().domain(cohorts).range([height - margin.bottom, margin.top]).padding(0.2);
+    const y = d3.scaleBand().domain(COHORTS).range([height - margin.bottom, margin.top]).padding(0.2);
     const xMaxFn = d3.max(data, d => d.fn) || 1;
     const xMaxNon = d3.max(data, d => d.non) || 1;
     const xL = d3.scaleLinear().domain([0, xMaxFn]).range([width / 2 - 35, margin.left]);
@@ -469,72 +432,45 @@ function drawPyramidChart(containerId, fState, animate) {
         legend.append("text").attr("x", 15).attr("y", 24).style("fill", "var(--text-muted)").attr("class", "chart-label").text("Non-Indigenous (solid)");
     }
 
-    applyTransition(svg.select(".axis-left"), animate && updating).call(d3.axisBottom(xL).ticks(4).tickFormat(d3.format("~s")));
-    applyTransition(svg.select(".axis-right"), animate && updating).call(d3.axisBottom(xR).ticks(4).tickFormat(d3.format("~s")));
+    const trans = animate && updating;
+    const mid = width / 2;
+    applyTransition(svg.select(".axis-left"), trans).call(d3.axisBottom(xL).ticks(4).tickFormat(d3.format("~s")));
+    applyTransition(svg.select(".axis-right"), trans).call(d3.axisBottom(xR).ticks(4).tickFormat(d3.format("~s")));
 
-    function bindBarEvents(selection, valueKey, titlePrefix) {
-        const tip = d => `<div class="tooltip-title">${titlePrefix} (Age ${d.group})</div>Total: <b>${d[valueKey].toLocaleString()}</b> cases`;
-        selection
-            .attr("tabindex", "0").attr("role", "button")
-            .attr("aria-label", d => `${titlePrefix}, age ${d.group}: ${d[valueKey].toLocaleString()} hospitalisations`)
-            .on("mouseover focus", function (e, d) { showChartTip(this, tip(d), e); })
-            .on("mousemove", (e, d) => showTooltip(tip(d), e.pageX + 15, e.pageY - 15))
-            .on("mouseout blur", function () { hideTooltip(this); });
-    }
+    [
+        { cls: "lBar", key: "fn", title: "First Nations", fill: "url(#" + fnPatternId + ")", x: d => xL(d.fn), w: d => mid - 35 - xL(d.fn) },
+        { cls: "rBar", key: "non", title: "Non-Indigenous", fill: "var(--chart-blue)", x: () => mid + 35, w: d => xR(d.non) - (mid + 35) }
+    ].forEach(side => {
+        const bars = updateDataJoin(svg, "." + side.cls, data, d => d.group, enter =>
+            enter.append("rect").attr("class", "dash-bar " + side.cls).attr("fill", side.fill));
+        const tip = d => `<div class="tooltip-title">${side.title} (Age ${d.group})</div>Total: <b>${d[side.key].toLocaleString()}</b> cases`;
+        bindHoverTip(bars.attr("tabindex", "0").attr("role", "button")
+            .attr("aria-label", d => `${side.title}, age ${d.group}: ${d[side.key].toLocaleString()} hospitalisations`), tip);
+        applyTransition(bars, trans).attr("x", side.x).attr("y", d => y(d.group)).attr("width", side.w).attr("height", y.bandwidth());
+    });
 
-    const lBars = svg.selectAll(".lBar").data(data, d => d.group);
-    lBars.exit().remove();
-    const lBarsEnter = lBars.enter().append("rect").attr("class", "dash-bar lBar").attr("fill", "url(#" + fnPatternId + ")");
-    bindBarEvents(lBarsEnter.merge(lBars), "fn", "First Nations");
-    applyTransition(lBarsEnter.merge(lBars), animate && updating)
-        .attr("x", d => xL(d.fn))
-        .attr("y", d => y(d.group))
-        .attr("width", d => (width / 2 - 35) - xL(d.fn))
-        .attr("height", y.bandwidth());
-
-    const rBars = svg.selectAll(".rBar").data(data, d => d.group);
-    rBars.exit().remove();
-    const rBarsEnter = rBars.enter().append("rect").attr("class", "dash-bar rBar").attr("fill", "var(--chart-blue)");
-    bindBarEvents(rBarsEnter.merge(rBars), "non", "Non-Indigenous");
-    applyTransition(rBarsEnter.merge(rBars), animate && updating)
-        .attr("x", width / 2 + 35)
-        .attr("y", d => y(d.group))
-        .attr("width", d => xR(d.non) - (width / 2 + 35))
-        .attr("height", y.bandwidth());
-
-    const labels = svg.selectAll(".lbl").data(data, d => d.group);
-    labels.exit().remove();
-    labels.enter().append("text").attr("class", "chart-label lbl")
-        .attr("x", width / 2).attr("text-anchor", "middle").style("fill", "var(--text-dark)").style("font-weight", "bold").attr("aria-hidden", "true")
-        .merge(labels)
-        .text(d => d.group);
-    applyTransition(svg.selectAll(".lbl"), animate && updating)
-        .attr("y", d => y(d.group) + y.bandwidth() / 2 + 4);
+    const labels = updateDataJoin(svg, ".lbl", data, d => d.group, enter =>
+        enter.append("text").attr("class", "chart-label lbl").attr("x", mid)
+            .attr("text-anchor", "middle").style("fill", "var(--text-dark)").style("font-weight", "bold").attr("aria-hidden", "true"));
+    labels.text(d => d.group);
+    applyTransition(labels, trans).attr("y", d => y(d.group) + y.bandwidth() / 2 + 4);
 }
 
 // Spiral heatmap
 function drawSpiralChart(containerId, fState, animate) {
-    const isDashboard = containerId.startsWith("dash-canvas-");
-    const parent = d3.select("#" + containerId);
+    const { parent, updating } = prepareChart(containerId);
     let svg = parent.select("svg");
-    const updating = isDashboard && !svg.empty();
-
-    if (!isDashboard || !updating) parent.html("");
 
     const subset = filterHospData(fState);
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const vehicles = ["Car", "Motorcycle", "Bicycle", "Pedestrian", "Truck"];
     const gradientId = "spiral-gradient-" + containerId;
     const baseR = 50;
     const rThick = 26;
 
-    const data = [];
-    vehicles.forEach((v, vIdx) => {
-        months.forEach((m, mIdx) => {
-            const count = d3.sum(subset.filter(d => mapVehicle(d.roadUser).includes(v.split("/")[0]) && d.month === m), x => x.cases);
-            data.push({ v, vIdx, m, mIdx, val: count, key: v + "|" + m });
-        });
-    });
+    const data = VEHICLES.flatMap((v, vIdx) => MONTHS.map((m, mIdx) => ({
+        v, vIdx, m, mIdx,
+        val: d3.sum(subset.filter(d => mapVehicle(d.roadUser) === v && d.month === m), x => x.cases),
+        key: v + "|" + m
+    })));
 
     const maxVal = d3.max(data, d => d.val) || 1;
     const color = d3.scaleSequentialLog(d3.interpolateRgb("#0f172a", "#ef4444")).domain([1, maxVal]);
@@ -553,14 +489,14 @@ function drawSpiralChart(containerId, fState, animate) {
         svg.append("title").text("Spiral heatmap: monthly hospitalisations by vehicle type");
         const g = svg.append("g").attr("class", "spiral-root").attr("transform", `translate(300, 300)`);
 
-        months.forEach((m, i) => {
+        MONTHS.forEach((m, i) => {
             const ang = ((i + 0.5) * 2 * Math.PI) / 12 - Math.PI / 2;
-            const radius = baseR + (vehicles.length * rThick) + 20;
+            const radius = baseR + (VEHICLES.length * rThick) + 20;
             g.append("text").attr("class", "chart-label spiral-month-label").attr("x", radius * Math.cos(ang)).attr("y", radius * Math.sin(ang) + 4)
                 .attr("text-anchor", "middle").style("fill", "var(--text-muted)").style("font-weight", "bold").text(m.substring(0, 3)).attr("aria-hidden", "true");
         });
 
-        vehicles.forEach((v, i) => {
+        VEHICLES.forEach((v, i) => {
             g.append("text").attr("class", "chart-label spiral-vehicle-label").attr("x", 5).attr("y", -(baseR + (i * rThick) + 12))
                 .attr("text-anchor", "start").style("fill", "var(--text-muted)").text(v).attr("aria-hidden", "true");
         });
@@ -570,50 +506,35 @@ function drawSpiralChart(containerId, fState, animate) {
         gradient.append("stop").attr("offset", "0%").attr("stop-color", "#0f172a");
         gradient.append("stop").attr("offset", "100%").attr("stop-color", "#ef4444");
 
-        const legendG = g.append("g").attr("class", "spiral-legend").attr("transform", `translate(-100, ${baseR + (vehicles.length * rThick) + 40})`).attr("aria-hidden", "true");
+        const legendG = g.append("g").attr("class", "spiral-legend").attr("transform", `translate(-100, ${baseR + (VEHICLES.length * rThick) + 40})`).attr("aria-hidden", "true");
         legendG.append("text").attr("x", 100).attr("y", 0).attr("text-anchor", "middle").style("fill", "var(--text-muted)").attr("class", "chart-label").style("font-weight", "bold").text("Hospitalisation Intensity");
         legendG.append("rect").attr("x", 0).attr("y", 8).attr("width", 200).attr("height", 10).style("fill", "url(#" + gradientId + ")");
         legendG.append("text").attr("x", 0).attr("y", 30).attr("text-anchor", "middle").style("fill", "var(--text-muted)").attr("class", "chart-label").text("Low");
         legendG.append("text").attr("x", 200).attr("y", 30).attr("text-anchor", "middle").style("fill", "var(--text-muted)").attr("class", "chart-label").text("High");
     }
 
-    const g = svg.select(".spiral-root");
-    const segments = g.selectAll(".spiral-segment").data(data, d => d.key);
-    segments.exit().remove();
-    const segmentsEnter = segments.enter().append("path").attr("class", "spiral-segment")
-        .attr("d", arcPath)
-        .attr("stroke", "var(--panel-bg)").attr("stroke-width", "1.5px")
-        .style("cursor", "pointer")
-        .attr("tabindex", "0").attr("role", "button");
-
-    const segmentsAll = segmentsEnter.merge(segments);
-    segmentsAll
-        .attr("aria-label", d => `${d.v}, ${d.m}: ${d.val.toLocaleString()} hospitalisations`)
-        .on("mouseover focus", function (e, d) {
-            d3.select(this).attr("stroke", "#fff").attr("stroke-width", "2px");
-            const tip = `<div class="tooltip-title">${d.v}</div>Month: ${d.m}<br>Cases: <b>${d.val.toLocaleString()}</b>`;
-            showChartTip(this, tip, e);
-        })
-        .on("mousemove", (e, d) => showTooltip(`<div class="tooltip-title">${d.v}</div>Month: ${d.m}<br>Cases: <b>${d.val.toLocaleString()}</b>`, e.pageX + 15, e.pageY - 15))
-        .on("mouseout blur", function () {
-            d3.select(this).attr("stroke", "var(--panel-bg)").attr("stroke-width", "1.5px");
-            hideTooltip(this);
-        });
+    const spiralTip = d => `<div class="tooltip-title">${d.v}</div>Month: ${d.m}<br>Cases: <b>${d.val.toLocaleString()}</b>`;
+    const segmentsAll = updateDataJoin(svg.select(".spiral-root"), ".spiral-segment", data, d => d.key, enter =>
+        enter.append("path").attr("class", "spiral-segment").attr("d", arcPath)
+            .attr("stroke", "var(--panel-bg)").attr("stroke-width", "1.5px")
+            .style("cursor", "pointer").attr("tabindex", "0").attr("role", "button"));
+    segmentsAll.attr("aria-label", d => `${d.v}, ${d.m}: ${d.val.toLocaleString()} hospitalisations`)
+        .on("mouseover focus", function (e, d) { d3.select(this).attr("stroke", "#fff").attr("stroke-width", "2px"); showChartTip(this, spiralTip(d), e); })
+        .on("mousemove", (e, d) => showTooltip(spiralTip(d), e.pageX + 15, e.pageY - 15))
+        .on("mouseout blur", function () { d3.select(this).attr("stroke", "var(--panel-bg)").attr("stroke-width", "1.5px"); hideTooltip(this); });
 
     if (animate && updating) {
         segmentsAll.each(function (d) {
             const node = d3.select(this);
-            const prev = node.datum();
-            const startVal = prev ? prev.val : d.val;
+            const startVal = (node.datum() || d).val;
             node.datum(d);
-            node.transition().duration(CHART_TRANSITION_MS).ease(d3.easeCubicInOut)
-                .attrTween("fill", () => t => {
-                    const v = startVal + t * (d.val - startVal);
-                    return v <= 0 ? "rgba(255,255,255,0.02)" : color(Math.max(1, v));
-                });
+            chartTransition(node).attrTween("fill", () => t => {
+                const v = startVal + t * (d.val - startVal);
+                return v <= 0 ? "rgba(255,255,255,0.02)" : color(Math.max(1, v));
+            });
         });
     } else {
-        segmentsAll.datum(d => d).attr("fill", segmentFill);
+        segmentsAll.attr("fill", segmentFill);
     }
 }
 
@@ -670,7 +591,6 @@ function drawSankeyChart(containerId, fState, animate) {
     });
 
     const regions = ["Major Cities", "Regional", "Remote"];
-    const vehicles = ["Car", "Motorcycle", "Bicycle", "Pedestrian", "Truck"];
     const severities = ["Minor Stay (< 3d)", "Moderate Stay (3–7d)", "Severe Stay (> 7d)"];
 
     const regionColor = {
@@ -692,7 +612,7 @@ function drawSankeyChart(containerId, fState, animate) {
     };
 
     const regionTotal = Object.fromEntries(regions.map(r => [r, 0]));
-    const vehicleTotal = Object.fromEntries(vehicles.map(v => [v, 0]));
+    const vehicleTotal = Object.fromEntries(VEHICLES.map(v => [v, 0]));
     const severityTotal = Object.fromEntries(severities.map(s => [s, 0]));
 
     Object.values(agg).forEach(({ region, vehicle, sev, cases }) => {
@@ -729,54 +649,34 @@ function drawSankeyChart(containerId, fState, animate) {
     const colX3 = W - pad.right - nodeW;
 
     const regionNodes = layoutColumn(regions, regionTotal, colX1);
-    const vehicleNodes = layoutColumn(vehicles, vehicleTotal, colX2);
+    const vehicleNodes = layoutColumn(VEHICLES, vehicleTotal, colX2);
     const severityNodes = layoutColumn(severities, severityTotal, colX3);
 
-    const nodeMap = {};
-    [...regionNodes, ...vehicleNodes, ...severityNodes].forEach(n => nodeMap[n.name] = n);
+    const allNodes = [...regionNodes, ...vehicleNodes, ...severityNodes];
+    const nodeMap = Object.fromEntries(allNodes.map(n => [n.name, n]));
+    const outOffset = Object.fromEntries(allNodes.map(n => [n.name, 0]));
+    const inOffset = Object.fromEntries(allNodes.map(n => [n.name, 0]));
 
-    const outOffset = {};
-    const inOffset = {};
-    [...regionNodes, ...vehicleNodes, ...severityNodes].forEach(n => {
-        outOffset[n.name] = 0;
-        inOffset[n.name] = 0;
-    });
-
-    const rv_links = [];
-    regions.forEach(region => {
-        vehicles.forEach(vehicle => {
-            const cases = d3.sum(
-                Object.values(agg).filter(d => d.region === region && d.vehicle === vehicle),
-                d => d.cases
-            );
-            if (cases === 0) return;
-            const rNode = nodeMap[region];
-            const vNode = nodeMap[vehicle];
-            if (!rNode || !vNode) return;
-            rv_links.push({ source: rNode, target: vNode, cases, color: regionColor[region] });
+    function makeLinks(fromList, toList, fromKey, toKey, colorFn) {
+        const links = [];
+        fromList.forEach(from => {
+            toList.forEach(to => {
+                const cases = d3.sum(Object.values(agg).filter(d => d[fromKey] === from && d[toKey] === to), d => d.cases);
+                if (!cases) return;
+                const source = nodeMap[from], target = nodeMap[to];
+                if (!source || !target) return;
+                links.push({ source, target, cases, color: colorFn(from, to) });
+            });
         });
-    });
+        return links;
+    }
 
-    const vs_links = [];
-    vehicles.forEach(vehicle => {
-        severities.forEach(sev => {
-            const cases = d3.sum(
-                Object.values(agg).filter(d => d.vehicle === vehicle && d.sev === sev),
-                d => d.cases
-            );
-            if (cases === 0) return;
-            const vNode = nodeMap[vehicle];
-            const sNode = nodeMap[sev];
-            if (!vNode || !sNode) return;
-            vs_links.push({ source: vNode, target: sNode, cases, color: vehicleColor[vehicle] });
-        });
-    });
+    const rv_links = makeLinks(regions, VEHICLES, "region", "vehicle", r => regionColor[r]);
+    const vs_links = makeLinks(VEHICLES, severities, "vehicle", "sev", v => vehicleColor[v]);
 
     function computeLinkGeometry(links) {
         return links.map(link => {
             const { source: s, target: t, cases } = link;
-            const srcH = (cases / totalCases) * (H - pad.top - pad.bottom - nodeGap * (regions.length - 1));
-            const linkH = Math.max(1, (cases / totalCases) * (H - pad.top - pad.bottom));
 
             const sy0 = s.y + (outOffset[s.name] / s.total) * s.h;
             const sy1 = sy0 + (cases / s.total) * s.h;
@@ -793,44 +693,24 @@ function drawSankeyChart(containerId, fState, animate) {
     const rvGeom = computeLinkGeometry(rv_links);
     const vsGeom = computeLinkGeometry(vs_links);
 
+    function sankeyTip(title, count) {
+        const pct = ((count / totalCases) * 100).toFixed(1);
+        return `<div class="tooltip-title">${title}</div>Hospitalisations: <b>${count.toLocaleString()}</b><br>Share of total: <b>${pct}%</b>`;
+    }
+
     function drawLinks(links, xSrcRight, xTgtLeft) {
         const g = svg.append("g").attr("class", "sankey-links");
+        const cx = (xSrcRight + xTgtLeft) / 2;
         links.forEach(link => {
             const { sy0, sy1, ty0, ty1, color, cases } = link;
-            const cx = (xSrcRight + xTgtLeft) / 2;
-
-            const path = `
-                M ${xSrcRight} ${sy0}
-                C ${cx} ${sy0}, ${cx} ${ty0}, ${xTgtLeft} ${ty0}
-                L ${xTgtLeft} ${ty1}
-                C ${cx} ${ty1}, ${cx} ${sy1}, ${xSrcRight} ${sy1}
-                Z
-            `;
-
+            const path = `M ${xSrcRight} ${sy0} C ${cx} ${sy0}, ${cx} ${ty0}, ${xTgtLeft} ${ty0} L ${xTgtLeft} ${ty1} C ${cx} ${ty1}, ${cx} ${sy1}, ${xSrcRight} ${sy1} Z`;
+            const title = `${link.source.name} → ${link.target.name}`;
             const pct = ((cases / totalCases) * 100).toFixed(1);
-            const tipHtml = `
-                <div class="tooltip-title">${link.source.name} → ${link.target.name}</div>
-                Hospitalisations: <b>${cases.toLocaleString()}</b><br>
-                Share of total: <b>${pct}%</b>
-            `;
-            g.append("path")
-                .attr("d", path)
-                .attr("fill", color)
-                .attr("opacity", 0.25)
-                .attr("class", "sankey-link")
-                .style("cursor", "pointer")
-                .attr("tabindex", "0")
-                .attr("role", "button")
-                .attr("aria-label", `${link.source.name} to ${link.target.name}: ${cases.toLocaleString()} hospitalisations, ${pct}% of total`)
-                .on("mouseover focus", function (e) {
-                    d3.select(this).attr("opacity", 0.65);
-                    showChartTip(this, tipHtml, e);
-                })
-                .on("mousemove", e => showTooltip(tipHtml, e.pageX + 15, e.pageY - 15))
-                .on("mouseout blur", function () {
-                    d3.select(this).attr("opacity", 0.25);
-                    hideTooltip(this);
-                });
+            bindOpacityTip(g.append("path").attr("d", path).attr("fill", color).attr("opacity", 0.25)
+                .attr("class", "sankey-link").style("cursor", "pointer")
+                .attr("tabindex", "0").attr("role", "button")
+                .attr("aria-label", `${link.source.name} to ${link.target.name}: ${cases.toLocaleString()} hospitalisations, ${pct}% of total`),
+                sankeyTip(title, cases), 0.65, 0.25);
         });
     }
 
@@ -838,107 +718,65 @@ function drawSankeyChart(containerId, fState, animate) {
     drawLinks(vsGeom, colX2 + nodeW, colX3);
 
     function drawNodes(nodes, colorMap, labelSide) {
+        const anchor = labelSide === "left" ? "end" : labelSide === "right" ? "start" : "middle";
         nodes.forEach(node => {
             const g = svg.append("g").style("cursor", "pointer");
             const pct = ((node.total / totalCases) * 100).toFixed(1);
-
-            const tipHtml = `
-                <div class="tooltip-title">${node.name}</div>
-                Hospitalisations: <b>${node.total.toLocaleString()}</b><br>
-                Share of total: <b>${pct}%</b>
-            `;
-            g.append("rect")
-                .attr("x", node.x).attr("y", node.y)
-                .attr("width", nodeW).attr("height", node.h)
-                .attr("fill", colorMap[node.name] || "#94a3b8")
-                .attr("rx", 3)
-                .attr("tabindex", "0")
-                .attr("role", "button")
-                .attr("aria-label", `${node.name}: ${node.total.toLocaleString()} hospitalisations, ${pct}% of total`)
-                .on("mouseover focus", function (e) {
-                    d3.select(this).attr("opacity", 0.8);
-                    showChartTip(this, tipHtml, e);
-                })
-                .on("mousemove", e => showTooltip(tipHtml, e.pageX + 15, e.pageY - 15))
-                .on("mouseout blur", function () {
-                    d3.select(this).attr("opacity", 1);
-                    hideTooltip(this);
-                });
-
             const midY = node.y + node.h / 2;
-            const textX = labelSide === "left" ? node.x - 8 :
-                labelSide === "right" ? node.x + nodeW + 8 : node.x + nodeW / 2;
-            const anchor = labelSide === "left" ? "end" :
-                labelSide === "right" ? "start" : "middle";
+            const textX = labelSide === "left" ? node.x - 8 : labelSide === "right" ? node.x + nodeW + 8 : node.x + nodeW / 2;
 
-            g.append("text")
-                .attr("x", textX).attr("y", midY - 4)
-                .attr("text-anchor", anchor).attr("dominant-baseline", "middle")
+            bindOpacityTip(g.append("rect").attr("x", node.x).attr("y", node.y)
+                .attr("width", nodeW).attr("height", node.h).attr("fill", colorMap[node.name] || "#94a3b8").attr("rx", 3)
+                .attr("tabindex", "0").attr("role", "button")
+                .attr("aria-label", `${node.name}: ${node.total.toLocaleString()} hospitalisations, ${pct}% of total`),
+                sankeyTip(node.name, node.total), 0.8, 1);
+
+            g.append("text").attr("x", textX).attr("y", midY - 4).attr("text-anchor", anchor).attr("dominant-baseline", "middle")
                 .style("fill", "var(--text-dark)").attr("class", "chart-label").style("font-weight", "700")
                 .text(node.name).attr("aria-hidden", "true");
-
-            g.append("text")
-                .attr("x", textX).attr("y", midY + 10)
-                .attr("text-anchor", anchor).attr("dominant-baseline", "middle")
+            g.append("text").attr("x", textX).attr("y", midY + 10).attr("text-anchor", anchor).attr("dominant-baseline", "middle")
                 .style("fill", "var(--text-muted)").attr("class", "chart-label")
                 .text(`${(node.total / 1000).toFixed(1)}k · ${pct}%`).attr("aria-hidden", "true");
         });
     }
 
-    drawNodes(regionNodes, regionColor, "left");
-    drawNodes(vehicleNodes, vehicleColor, "right");
-    drawNodes(severityNodes, severityColor, "right");
-
-    const colHeaders = [
-        { label: "Region", x: colX1 + nodeW / 2 },
-        { label: "Vehicle Type", x: colX2 + nodeW / 2 },
-        { label: "Severity of Stay", x: colX3 + nodeW / 2 },
-    ];
-    colHeaders.forEach(h => {
-        svg.append("text")
-            .attr("x", h.x).attr("y", pad.top - 10)
-            .attr("text-anchor", "middle")
+    [
+        [regionNodes, regionColor, "left", "Region", colX1],
+        [vehicleNodes, vehicleColor, "right", "Vehicle Type", colX2],
+        [severityNodes, severityColor, "right", "Severity of Stay", colX3]
+    ].forEach(([nodes, colors, side, label, colX]) => {
+        drawNodes(nodes, colors, side);
+        svg.append("text").attr("x", colX + nodeW / 2).attr("y", pad.top - 10).attr("text-anchor", "middle")
             .style("fill", "var(--chart-blue)").attr("class", "chart-label")
             .style("font-weight", "800").style("text-transform", "uppercase").style("letter-spacing", "1.5px")
-            .text(h.label).attr("aria-hidden", "true");
+            .text(label).attr("aria-hidden", "true");
     });
 
-    const legendX = colX2 - 4;
-    const legendY = H - 8;
-    const legendItems = Object.entries(vehicleColor);
     const itemW = 90;
-    const totalLegW = legendItems.length * itemW;
-    const legendStartX = legendX - totalLegW / 2 + nodeW / 2;
-
-    legendItems.forEach(([name, color], i) => {
+    const legendStartX = colX2 - 4 - Object.keys(vehicleColor).length * itemW / 2 + nodeW / 2;
+    Object.entries(vehicleColor).forEach(([name, color], i) => {
         const lx = legendStartX + i * itemW;
-        svg.append("rect")
-            .attr("x", lx).attr("y", legendY - 8)
-            .attr("width", 10).attr("height", 10)
+        svg.append("rect").attr("x", lx).attr("y", H - 16).attr("width", 10).attr("height", 10)
             .attr("fill", color).attr("rx", 2).attr("aria-hidden", "true");
-        svg.append("text")
-            .attr("x", lx + 14).attr("y", legendY + 1)
-            .style("fill", "var(--text-muted)").attr("class", "chart-label")
-            .text(name).attr("aria-hidden", "true");
+        svg.append("text").attr("x", lx + 14).attr("y", H - 7)
+            .style("fill", "var(--text-muted)").attr("class", "chart-label").text(name).attr("aria-hidden", "true");
     });
 }
 
 // Scrollytelling
 function updateScrollyChart(index) {
-    const state = { gender: "All", year: "All", region: "All", age: "All", roadUser: "All" };
+    const draw = CHART_DRAWERS[index];
+    if (!draw) return;
+    const state = { ...DEFAULT_FILTERS };
     if (index === 1 || index === 2) state.year = "2021";
-    if (index === 0) drawLineChart("chart-canvas", state);
-    else if (index === 1) drawPyramidChart("chart-canvas", state);
-    else if (index === 2) drawSpiralChart("chart-canvas", state);
-    else if (index === 3) drawSankeyChart("chart-canvas", state);
+    draw("chart-canvas", state);
 }
 
 function syncScrollyStep(index, announce) {
-    const steps = document.querySelectorAll(".step");
-    if (index < 0 || index >= steps.length) return;
+    if (index < 0 || index >= scrollySteps.length) return;
 
     activeScrollyStep = index;
-    steps.forEach((s, i) => {
+    scrollySteps.forEach((s, i) => {
         s.classList.toggle("active", i === index);
         if (i === index) s.setAttribute("aria-current", "step");
         else s.removeAttribute("aria-current");
@@ -946,27 +784,28 @@ function syncScrollyStep(index, announce) {
 
     if (announce) {
         const status = document.getElementById("scrolly-status");
-        const title = steps[index].querySelector("h2");
-        if (status && title) status.textContent = `Section ${index + 1} of ${steps.length}: ${title.textContent}`;
+        const title = scrollySteps[index].querySelector("h2");
+        if (status && title) status.textContent = `Section ${index + 1} of ${scrollySteps.length}: ${title.textContent}`;
     }
 
     updateScrollyChart(index);
 }
 
 function jumpScrollyStep(delta) {
-    const steps = document.querySelectorAll(".step");
     const index = activeScrollyStep + delta;
-    if (index < 0 || index >= steps.length) return;
+    if (index < 0 || index >= scrollySteps.length) return;
 
     scrollyNavigating = true;
     syncScrollyStep(index, true);
-    steps[index].scrollIntoView({ behavior: "smooth", block: "center" });
+    scrollySteps[index].scrollIntoView({ behavior: "smooth", block: "center" });
     setTimeout(() => { scrollyNavigating = false; }, 700);
 }
 
 function initScrolly() {
     const section = document.querySelector(".scrolly-section");
     if (!section) return;
+
+    scrollySteps = [...document.querySelectorAll(".step")];
 
     section.addEventListener("keydown", (e) => {
         const tag = document.activeElement?.tagName;
@@ -977,9 +816,8 @@ function initScrolly() {
 
     window.addEventListener("scroll", () => {
         if (scrollyNavigating) return;
-        const steps = document.querySelectorAll(".step");
         let active = 0;
-        steps.forEach((s, i) => { if (s.getBoundingClientRect().top <= window.innerHeight / 2) active = i; });
+        scrollySteps.forEach((s, i) => { if (s.getBoundingClientRect().top <= window.innerHeight / 2) active = i; });
         if (active !== activeScrollyStep) syncScrollyStep(active, false);
     });
 }
